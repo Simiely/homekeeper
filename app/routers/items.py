@@ -1,4 +1,4 @@
-"""物品 CRUD，按当前用户隔离；支持按状态筛选。"""
+"""物品 CRUD，按当前用户隔离；支持按关键词/状态/分类/位置筛选。"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -14,13 +14,22 @@ router = APIRouter(prefix="/api/items", tags=["items"])
 
 @router.get("", response_model=list[ItemOut])
 def list_items(
+    keyword: str | None = None,
     status_filter: ItemStatus | None = None,
+    category_id: int | None = None,
+    location_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     q = db.query(Item).filter(Item.owner_id == current_user.id)
+    if keyword:
+        q = q.filter(Item.name.contains(keyword))
     if status_filter is not None:
         q = q.filter(Item.status == status_filter)
+    if category_id is not None:
+        q = q.filter(Item.category_id == category_id)
+    if location_id is not None:
+        q = q.filter(Item.location_id == location_id)
     return q.order_by(Item.created_at.desc()).all()
 
 

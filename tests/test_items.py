@@ -58,3 +58,36 @@ def test_item_isolation(client):
     tb = _login(client, "userB")
     lb = client.get("/api/items", headers={"Authorization": f"Bearer {tb}"}).json()
     assert len(lb) == 0
+
+
+def test_item_filter(client):
+    token = _login(client, "filteruser")
+    h = {"Authorization": f"Bearer {token}"}
+    loc = client.post("/api/locations", json={"name": "客厅"}, headers=h).json()
+    cat = client.post("/api/categories", json={"name": "工具"}, headers=h).json()
+    client.post(
+        "/api/items",
+        json={
+            "name": "螺丝刀",
+            "location_id": loc["id"],
+            "category_id": cat["id"],
+            "status": "在库",
+        },
+        headers=h,
+    )
+    client.post("/api/items", json={"name": "牛奶", "status": "已借出"}, headers=h)
+
+    r1 = client.get("/api/items?keyword=螺丝", headers=h).json()
+    assert len(r1) == 1 and r1[0]["name"] == "螺丝刀"
+
+    r2 = client.get(f"/api/items?category_id={cat['id']}", headers=h).json()
+    assert len(r2) == 1 and r2[0]["name"] == "螺丝刀"
+
+    r3 = client.get(f"/api/items?location_id={loc['id']}", headers=h).json()
+    assert len(r3) == 1
+
+    r4 = client.get("/api/items?status_filter=已借出", headers=h).json()
+    assert len(r4) == 1 and r4[0]["name"] == "牛奶"
+
+    r5 = client.get("/api/items?keyword=螺丝&status_filter=在库", headers=h).json()
+    assert len(r5) == 1
