@@ -1,0 +1,16 @@
+services:
+  homekeeper:
+    build: .
+    container_name: homekeeper
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/homekeeper.db
+      - SECRET_KEY=${SECRET_KEY:-change-me-to-a-long-random-string}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+    volumes:
+      # 数据持久化：宿主机 ./data 映射到容器内 /app/data
+      - ./data:/app/data
+    restart: unless-stopped

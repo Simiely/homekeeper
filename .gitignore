@@ -1,0 +1,15 @@
+# 虚拟环境
+.venv/
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 本地数据（SQLite 由 docker 卷持久化）
+data/*.db
+
+# 密钥配置（勿提交）
+.env
+
+# 编辑器 / 系统
+.DS_Store

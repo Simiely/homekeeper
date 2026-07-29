@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>物管家</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">物管家</div>
+      <nav>
+        <button data-view="dashboard" class="active">概览</button>
+        <button data-view="items">物品</button>
+        <button data-view="locations">位置</button>
+        <button data-view="categories">分类</button>
+      </nav>
+      <button id="logout" class="ghost">登出</button>
+    </header>
+
+    <main>
+      <section id="view-dashboard" class="view"></section>
+      <section id="view-items" class="view hidden"></section>
+      <section id="view-locations" class="view hidden"></section>
+      <section id="view-categories" class="view hidden"></section>
+    </main>
+
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

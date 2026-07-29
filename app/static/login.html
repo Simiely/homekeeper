@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>物管家 · 登录</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body class="auth-page">
+    <div class="auth-card">
+      <h1>物管家</h1>
+      <p class="sub">记录物品位置 · 保质期 · 状态</p>
+      <div class="tabs">
+        <button id="tab-login" class="active">登录</button>
+        <button id="tab-register">注册</button>
+      </div>
+      <form id="auth-form">
+        <input id="username" placeholder="用户名" autocomplete="username" required />
+        <input
+          id="password"
+          type="password"
+          placeholder="密码"
+          autocomplete="current-password"
+          required
+        />
+        <button type="submit" id="submit-btn">登录</button>
+      </form>
+      <p id="msg" class="msg"></p>
+    </div>
+    <script type="module" src="/js/auth.js"></script>
+  </body>
+</html>
