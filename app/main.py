@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, categories, dashboard, images, items, locations, push
+from app.routers import auth, categories, dashboard, images, items, locations, push, tags
 
 IMAGES_DIR = Path("/app/data/images")
 
@@ -44,6 +44,7 @@ app.include_router(categories.router)
 app.include_router(dashboard.router)
 app.include_router(images.router)
 app.include_router(push.router)
+app.include_router(tags.router)
 
 # 静态前端兜底挂载，必须在 API 路由之后
 STATIC_DIR = Path(__file__).resolve().parent / "static"

@@ -5,6 +5,16 @@ from app.models.item_image import ItemImage
 from app.models.location import Location
 from app.models.push_subscription import PushSubscription
 from app.models.status import ItemStatus
+from app.models.tag import Tag
 from app.models.user import User
 
-__all__ = ["User", "Location", "Category", "Item", "ItemImage", "PushSubscription", "ItemStatus"]
+__all__ = [
+    "User",
+    "Location",
+    "Category",
+    "Item",
+    "ItemImage",
+    "Tag",
+    "PushSubscription",
+    "ItemStatus",
+]

@@ -4,6 +4,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict
 
 from app.models.status import ItemStatus
+from app.schemas.tag import TagBrief
 
 
 class ItemBase(BaseModel):
@@ -43,6 +44,7 @@ class ItemOut(ItemBase):
     owner_id: int
     created_at: datetime
     updated_at: datetime | None = None
+    tags: list[TagBrief] = []
 
 
 class PaginatedItems(BaseModel):

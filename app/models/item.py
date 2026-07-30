@@ -10,9 +10,10 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.item_tag import item_tag_assoc
 from app.models.status import ItemStatus
 
 
@@ -40,4 +41,8 @@ class Item(Base):
     )
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), onupdate=func.now()
+    )
+
+    tags: Mapped[list["Tag"]] = relationship(  # noqa: F821
+        secondary=item_tag_assoc, back_populates="items", lazy="selectin"
     )

@@ -400,3 +400,15 @@ table.list button {
   color: var(--muted);
   padding: 0 2px;
 }
+
+/* ========== 标签 ========== */
+.tag-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid;
+  margin: 1px 2px;
+  white-space: nowrap;
+}

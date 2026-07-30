@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.item import Item
+from app.models.item_tag import item_tag_assoc
 from app.models.status import ItemStatus
+from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.item import ItemCreate, ItemOut, ItemUpdate, PaginatedItems
 
@@ -20,6 +22,7 @@ def list_items(
     status_filter: ItemStatus | None = None,
     category_id: int | None = None,
     location_id: int | None = None,
+    tag_id: int | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -34,6 +37,8 @@ def list_items(
         q = q.filter(Item.category_id == category_id)
     if location_id is not None:
         q = q.filter(Item.location_id == location_id)
+    if tag_id is not None:
+        q = q.join(item_tag_assoc).filter(item_tag_assoc.c.tag_id == tag_id)
     total = q.count()
     items = (
         q.order_by(Item.created_at.desc())
@@ -115,3 +120,59 @@ def delete_item(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
     db.delete(item)
     db.commit()
+
+
+# ========== 物品-标签关联 ==========
+
+
+@router.post("/{item_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+def add_tag_to_item(
+    item_id: int,
+    tag_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = (
+        db.query(Item)
+        .filter(Item.id == item_id, Item.owner_id == current_user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
+    tag = (
+        db.query(Tag)
+        .filter(Tag.id == tag_id, Tag.owner_id == current_user.id)
+        .first()
+    )
+    if not tag:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="标签不存在")
+    if tag not in item.tags:
+        item.tags.append(tag)
+        db.commit()
+    return None
+
+
+@router.delete("/{item_id}/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_tag_from_item(
+    item_id: int,
+    tag_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = (
+        db.query(Item)
+        .filter(Item.id == item_id, Item.owner_id == current_user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
+    tag = (
+        db.query(Tag)
+        .filter(Tag.id == tag_id, Tag.owner_id == current_user.id)
+        .first()
+    )
+    if not tag:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="标签不存在")
+    item.tags.remove(tag)
+    db.commit()
+    return None

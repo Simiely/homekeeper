@@ -4,6 +4,7 @@ import { renderItems } from "./items.js";
 import { renderLocations } from "./locations.js";
 import { renderCategories } from "./categories.js";
 import { renderDashboard } from "./dashboard.js";
+import { renderTags } from "./tags.js";
 
 if (!getToken()) location.href = "/login.html";
 
@@ -106,10 +107,12 @@ function urlBase64ToUint8Array(base64String) {
 initPush();
 
 // ========== 导航调度 ==========
+const views = {
   dashboard: renderDashboard,
   items: renderItems,
   locations: renderLocations,
   categories: renderCategories,
+  tags: renderTags,
 };
 
 document.querySelectorAll("nav button[data-view]").forEach((btn) => {

@@ -7,9 +7,10 @@ export async function renderItems() {
   const el = document.getElementById("view-items");
   el.innerHTML = "<h2>物品</h2><div class='loading'>加载中…</div>";
   try {
-    const [locations, categories] = await Promise.all([
+    const [locations, categories, tags] = await Promise.all([
       api.get("/locations"),
       api.get("/categories"),
+      api.get("/tags"),
     ]);
 
     const statusOpts = ['<option value="">全部状态</option>']
@@ -20,6 +21,9 @@ export async function renderItems() {
       .join("");
     const locOpts = ['<option value="">全部位置</option>']
       .concat(buildTreeOptions(locations))
+      .join("");
+    const tagOpts = ['<option value="">全部标签</option>']
+      .concat(tags.map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`))
       .join("");
 
     el.innerHTML = `
@@ -42,6 +46,10 @@ export async function renderItems() {
         </select>
         <input name="expiry_date" type="date" title="保质期" />
         <input name="purchase_date" type="date" title="购买日期" />
+        <select name="tags" multiple size="3" title="标签（按住 Ctrl 多选）">
+          <option value="">标签…</option>
+          ${tags.map((t) => `<option value="${t.id}" style="color:${t.color}">${escapeHtml(t.name)}</option>`).join("")}
+        </select>
         <button type="submit">添加</button>
       </form>
 
@@ -50,6 +58,7 @@ export async function renderItems() {
         <select id="f-status">${statusOpts}</select>
         <select id="f-category">${catOpts}</select>
         <select id="f-location">${locOpts}</select>
+        <select id="f-tag">${tagOpts}</select>
         <button id="f-search" type="button">搜索</button>
         <button id="f-reset" type="button" class="ghost">重置</button>
       </div>
@@ -83,11 +92,13 @@ export async function renderItems() {
     el.querySelector("#f-status").onchange = doSearch;
     el.querySelector("#f-category").onchange = doSearch;
     el.querySelector("#f-location").onchange = doSearch;
+    el.querySelector("#f-tag").onchange = doSearch;
     el.querySelector("#f-reset").onclick = () => {
       el.querySelector("#f-keyword").value = "";
       el.querySelector("#f-status").value = "";
       el.querySelector("#f-category").value = "";
       el.querySelector("#f-location").value = "";
+      el.querySelector("#f-tag").value = "";
       loadItems();
     };
 
@@ -165,10 +176,12 @@ export async function renderItems() {
       const st = el.querySelector("#f-status").value;
       const ca = el.querySelector("#f-category").value;
       const lo = el.querySelector("#f-location").value;
+      const ta = el.querySelector("#f-tag").value;
       if (kw) params.set("keyword", kw);
       if (st) params.set("status_filter", st);
       if (ca) params.set("category_id", ca);
       if (lo) params.set("location_id", lo);
+      if (ta) params.set("tag_id", ta);
       params.set("page", currentPage);
       params.set("page_size", "20");
       const qs = params.toString();
@@ -230,6 +243,7 @@ export async function renderItems() {
           <td>${it.quantity} ${escapeHtml(it.unit)}</td>
           <td>${escapeHtml(it.status)}</td>
           <td>${it.expiry_date || "—"}</td>
+          <td>${(it.tags || []).map(t => `<span class="tag-chip" style="background:${t.color}20;color:${t.color};border-color:${t.color}60">${escapeHtml(t.name)}</span>`).join(" ") || "—"}</td>
           <td style="text-align:center">${imgCell}</td>
           <td style="white-space:nowrap">
             <button data-edit="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">编</button>
@@ -243,8 +257,8 @@ export async function renderItems() {
       listEl.innerHTML = `
         <p class="muted">共 ${total} 件 · 第 ${data.page}/${totalPages} 页</p>
         <table class="list">
-          <thead><tr><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th>图片</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="8" class="muted">无匹配物品</td></tr>'}</tbody>
+          <thead><tr><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th>标签</th><th>图片</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="9" class="muted">无匹配物品</td></tr>'}</tbody>
         </table>
         ${renderPagination(data)}
       `;
