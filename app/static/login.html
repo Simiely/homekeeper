@@ -3,30 +3,78 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>物管家 · 登录</title>
+    <title>拾光集 · 登录</title>
     <link rel="stylesheet" href="/css/style.css" />
+    <script>
+      // 提前应用主题，避免闪烁
+      (function () {
+        const t = localStorage.getItem("hk_theme") || "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      })();
+    </script>
   </head>
   <body class="auth-page">
+    <div class="bg-layer"></div>
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="glow glow-3"></div>
+
+    <button id="theme-toggle" class="theme-toggle" title="切换主题" type="button">🌙</button>
+
     <div class="auth-card">
-      <h1>物管家</h1>
-      <p class="sub">记录物品位置 · 保质期 · 状态</p>
-      <div class="tabs">
-        <button id="tab-login" class="active">登录</button>
-        <button id="tab-register">注册</button>
-      </div>
+      <span class="brand-icon">🏠</span>
+      <h1>拾光集</h1>
+      <p class="sub">家里的每一物，都值得被记住</p>
+
       <form id="auth-form">
-        <input id="username" placeholder="用户名" autocomplete="username" required />
-        <input
-          id="password"
-          type="password"
-          placeholder="密码"
-          autocomplete="current-password"
-          required
-        />
-        <button type="submit" id="submit-btn">登录</button>
+        <div class="input-group">
+          <span class="input-icon">👤</span>
+          <input id="username" type="text" placeholder="用户名" autocomplete="username" required />
+        </div>
+        <div class="input-group">
+          <span class="input-icon">🔒</span>
+          <input id="password" type="password" placeholder="密码" autocomplete="current-password" required />
+        </div>
+        <button type="submit" id="submit-btn">登 录</button>
       </form>
+
       <p id="msg" class="msg"></p>
+      <p class="footer-text">你的家 · 你的物品 · 井井有条</p>
+      <p class="datetime" id="login-datetime"></p>
     </div>
+
+    <script type="module" src="/js/theme.js"></script>
     <script type="module" src="/js/auth.js"></script>
+    <script>
+      // ===== 日期时间 =====
+      function updateDateTime() {
+        const el = document.getElementById("login-datetime");
+        if (!el) return;
+        const now = new Date();
+        const opts = { year: "numeric", month: "long", day: "numeric", weekday: "long" };
+        const dateStr = now.toLocaleDateString("zh-CN", opts);
+        const timeStr = now.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+        el.innerHTML = `<span class="dt-time">${timeStr}</span><span class="dt-date">${dateStr}</span>`;
+      }
+      updateDateTime();
+      setInterval(updateDateTime, 10000);
+
+      // ===== 自动填充修复（JS 兜底，CSS transition-delay 为主策略） =====
+      function forceAutofillStyle(input) {
+        input.style.setProperty("background-color", "transparent", "important");
+        input.style.setProperty("-webkit-box-shadow", "none", "important");
+        input.style.setProperty("box-shadow", "none", "important");
+      }
+      // 页面加载后多查几轮，确保 autofill 被覆盖
+      window.addEventListener("load", () => {
+        [50, 200, 800].forEach((ms) =>
+          setTimeout(() => {
+            document.querySelectorAll("input").forEach((el) => {
+              if (el.matches(":-webkit-autofill")) forceAutofillStyle(el);
+            });
+          }, ms)
+        );
+      });
+    </script>
   </body>
 </html>
