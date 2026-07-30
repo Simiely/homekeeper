@@ -48,6 +48,7 @@ export async function renderItems() {
         <input name="expiry_date" type="date" title="保质期" />
         <input name="purchase_date" type="date" title="购买日期" />
         <input name="serial_number" placeholder="序列号" />
+        <input name="price" type="number" step="0.01" placeholder="价格" title="价格（元）" />
         <input name="warranty_expiry" type="date" title="保修到期" />
         <select name="tags" multiple size="3" title="标签（按住 Ctrl 多选）">
           <option value="">标签…</option>
@@ -182,6 +183,7 @@ export async function renderItems() {
       form.querySelector("[name=expiry_date]").value = item.expiry_date || "";
       form.querySelector("[name=purchase_date]").value = item.purchase_date || "";
       form.querySelector("[name=serial_number]").value = item.serial_number || "";
+      form.querySelector("[name=price]").value = item.price ?? "";
       form.querySelector("[name=warranty_expiry]").value = item.warranty_expiry || "";
       // 修改提交按钮
       const btn = form.querySelector("button[type=submit]");
@@ -304,6 +306,7 @@ export async function renderItems() {
             }</td>
           <td>${catMap[it.category_id] || "—"}</td>
           <td>${it.quantity} ${escapeHtml(it.unit)}</td>
+          <td>${it.price ? '¥' + it.price.toFixed(2) : "—"}</td>
           <td>${escapeHtml(it.status)}</td>
           <td>${it.expiry_date || "—"}</td>
           <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(it.serial_number || "") || "—"}</td>
@@ -326,8 +329,8 @@ export async function renderItems() {
       listEl.innerHTML = `
         <p class="muted">共 ${total} 件 · 第 ${data.page}/${totalPages} 页</p>
         <table class="list">
-          <thead><tr><th style="width:32px"><input type="checkbox" id="select-all" /></th><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th>序列号</th><th>保修</th><th>标签</th><th>图片</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="12" class="muted">无匹配物品</td></tr>'}</tbody>
+          <thead><tr><th style="width:32px"><input type="checkbox" id="select-all" /></th><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>价格</th><th>状态</th><th>保质期</th><th>序列号</th><th>保修</th><th>标签</th><th>图片</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="13" class="muted">无匹配物品</td></tr>'}</tbody>
         </table>
         <div id="batch-bar" class="batch-bar" style="display:none">
           <span id="batch-count" class="muted" style="margin-right:8px">已选 0 件</span>
@@ -510,6 +513,7 @@ function buildPayload(fd) {
     expiry_date: fd.get("expiry_date") || null,
     purchase_date: fd.get("purchase_date") || null,
     serial_number: fd.get("serial_number") || null,
+    price: fd.get("price") ? Number(fd.get("price")) : null,
     warranty_expiry: fd.get("warranty_expiry") || null,
   };
   const lid = fd.get("location_id");

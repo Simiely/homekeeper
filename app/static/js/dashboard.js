@@ -24,14 +24,20 @@ export async function renderDashboard() {
     const catChips = Object.entries(byCat)
       .map(([k, v]) => `<span class="chip">${escapeHtml(k)}：${v}</span>`)
       .join("");
+    const valueChips = Object.entries(summary.by_category_value || {})
+      .map(([k, v]) => `<span class="chip">${escapeHtml(k)}：¥${Number(v).toFixed(2)}</span>`)
+      .join("");
 
     el.innerHTML = `
       <h2>概览</h2>
       <div class="stat">物品总数：<b>${summary.total}</b></div>
+      <div class="stat" style="font-size:18px">资产总值：<b style="color:var(--accent)">¥${(summary.total_value || 0).toFixed(2)}</b></div>
       <h3>按状态</h3>
       <div class="chips">${statusChips || '<span class="muted">暂无</span>'}</div>
       <h3>按分类</h3>
       <div class="chips">${catChips || '<span class="muted">暂无</span>'}</div>
+      <h3>分类资产</h3>
+      <div class="chips">${valueChips || '<span class="muted">暂无</span>'}</div>
       <h3>即将过期</h3>
       <div class="card" style="align-items:center">
         <label>未来 <input id="exp-days" type="number" min="1" value="30" style="width:72px" /> 天内</label>

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.models.category import Category
 from app.models.item import Item
 from app.models.user import User
 
@@ -19,10 +20,22 @@ def summary(
 ):
     items = db.query(Item).filter(Item.owner_id == current_user.id).all()
     by_status: dict[str, int] = {}
+    total_value = 0.0
+    by_category_value: dict[str, float] = {}
+    cat_map = {c.id: c.name for c in db.query(Category).filter(Category.owner_id == current_user.id).all()}
     for it in items:
         key = it.status.value if hasattr(it.status, "value") else str(it.status)
         by_status[key] = by_status.get(key, 0) + 1
-    return {"total": len(items), "by_status": by_status}
+        if it.price:
+            total_value += it.price * it.quantity
+            cat_name = cat_map.get(it.category_id, "未分类")
+            by_category_value[cat_name] = by_category_value.get(cat_name, 0) + it.price * it.quantity
+    return {
+        "total": len(items),
+        "by_status": by_status,
+        "total_value": round(total_value, 2),
+        "by_category_value": {k: round(v, 2) for k, v in sorted(by_category_value.items(), key=lambda x: -x[1])},
+    }
 
 
 @router.get("/expiring")

@@ -45,6 +45,7 @@ class Item(Base):
     archived: Mapped[bool] = mapped_column(default=False)
     serial_number: Mapped[str | None] = mapped_column(String(200), default=None)
     warranty_expiry: Mapped[date | None] = mapped_column(Date, nullable=True, default=None)
+    price: Mapped[float | None] = mapped_column(default=None)
 
     tags: Mapped[list["Tag"]] = relationship(  # noqa: F821
         secondary=item_tag_assoc, back_populates="items", lazy="selectin"
