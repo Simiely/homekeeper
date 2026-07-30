@@ -1,6 +1,6 @@
-// HomeKeeper Service Worker - 接收 Web Push 通知
+// 拾光集 Service Worker - 接收 Web Push 通知
 self.addEventListener("push", (event) => {
-  let data = { title: "📦 物管家", body: "" };
+  let data = { title: "🏠 拾光集", body: "" };
   try {
     if (event.data) {
       data = event.data.json();
