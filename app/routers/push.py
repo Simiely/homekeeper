@@ -3,7 +3,6 @@ import json
 import logging
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import date, timedelta
-from pathlib import Path
 from urllib.parse import urlparse
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -14,6 +13,7 @@ from py_vapid import Vapid
 from pywebpush import webpush
 from sqlalchemy.orm import Session
 
+from app.config import DATA_DIR
 from app.database import SessionLocal, get_db
 from app.deps import get_current_user
 from app.models.item import Item
@@ -29,7 +29,8 @@ EXPIRY_WARN_DAYS = 3  # 提前几天提醒
 SCAN_INTERVAL_HOURS = 6  # 扫描间隔
 
 # VAPID 密钥文件（存放在 Docker 持久卷 data/ 下）
-VAPID_FILE = Path("/app/data/vapid.json")
+# [local-dev] 原仓库为 Path("/app/data/vapid.json")，Docker 内路径
+VAPID_FILE = DATA_DIR / "vapid.json"
 
 
 # ========== VAPID 密钥管理 ==========
@@ -197,7 +198,7 @@ def _check_all_users():
 
             payload = json.dumps(
                 {
-                    "title": "📦 物管家",
+                    "title": "🏠 拾光集",
                     "body": f"{len(expiring)} 件物品即将过期：{items_text}",
                 }
             )
