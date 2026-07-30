@@ -315,6 +315,7 @@ export async function renderItems() {
           <td style="text-align:center">${imgCell}</td>
           <td style="white-space:nowrap">
             <button data-edit="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">编</button>
+            <button data-log="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px" title="操作日志">日志</button>
             <button data-borrow="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px" title="借用记录">借</button>
             <button data-qr="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px" title="二维码">◈</button>
             ${it.archived
@@ -398,6 +399,13 @@ export async function renderItems() {
           const itemId = Number(editBtn.dataset.edit);
           const item = items.find((it) => it.id === itemId);
           if (item) startEdit(item);
+          return;
+        }
+        // 日志
+        const logBtn = e.target.closest("[data-log]");
+        if (logBtn) {
+          const itemId = logBtn.dataset.log;
+          showLogDialog(itemId);
           return;
         }
         // 借用记录
@@ -508,6 +516,28 @@ export async function renderItems() {
   } catch (e) {
     el.innerHTML = `<p class="err">${e.message}</p>`;
   }
+}
+
+async function showLogDialog(itemId) {
+  const overlay = document.createElement("div");
+  overlay.className = "img-overlay";
+  overlay.style.cursor = "default";
+  try {
+    const logs = await api.get(`/items/${itemId}/logs`);
+    overlay.innerHTML = `<div style="background:var(--panel);padding:24px;border-radius:16px;min-width:480px;max-height:70vh;overflow-y:auto;cursor:default" onclick="event.stopPropagation()">
+      <h3 style="margin:0 0 12px">操作日志</h3>
+      ${logs.length ? logs.map(l => `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span class="tag-chip" style="background:${l.action === 'create' ? '#4CAF50' : l.action === 'delete' ? '#ff6b6b' : '#FB7299'}20;color:${l.action === 'create' ? '#4CAF50' : l.action === 'delete' ? '#ff6b6b' : '#FB7299'};border-color:transparent;font-size:11px">${l.action === 'create' ? '创建' : l.action === 'delete' ? '删除' : '修改'}</span>
+        <span style="color:var(--muted);margin-left:8px">${l.created_at.slice(0,19).replace('T',' ')}</span>
+        <div style="margin-top:4px;color:var(--text)">${escapeHtml(l.summary)}</div>
+      </div>`).join("") : '<p class="muted">暂无操作记录</p>'}
+      <button onclick="this.closest('.img-overlay').remove()" class="ghost" style="margin-top:12px;width:100%">关闭</button>
+    </div>`;
+  } catch (e) {
+    overlay.innerHTML = `<p style="color:var(--danger);padding:24px">${e.message}</p>`;
+  }
+  overlay.onclick = () => overlay.remove();
+  document.body.appendChild(overlay);
 }
 
 async function showBorrowDialog(itemId) {

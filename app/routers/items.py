@@ -18,8 +18,32 @@ from app.models.status import ItemStatus
 from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.item import BatchAction, ItemCreate, ItemOut, ItemUpdate, PaginatedItems
+from app.models.item_log import ItemLog
 
 router = APIRouter(prefix="/api/items", tags=["items"])
+
+
+def _log_item(item: Item, action: str, summary: str, db: Session):
+    """写入操作日志。"""
+    db.add(ItemLog(item_id=item.id, user_id=item.owner_id, action=action, summary=summary))
+
+
+def _item_changes(item: Item, payload: ItemUpdate, old: dict) -> str:
+    """比较旧值和 payload，返回变更摘要。"""
+    parts = []
+    for key, new_val in payload.model_dump(exclude_unset=True).items():
+        old_val = old.get(key)
+        if old_val != new_val:
+            parts.append(f"{key}: {_v(old_val)} → {_v(new_val)}")
+    return "；".join(parts) if parts else "无变更"
+
+
+def _v(v):
+    if v is None:
+        return "空"
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    return str(v)
 
 
 @router.get("", response_model=PaginatedItems)
@@ -80,6 +104,8 @@ def create_item(
     db.add(item)
     db.commit()
     db.refresh(item)
+    _log_item(item, "create", f"创建物品「{item.name}」", db)
+    db.commit()
     return item
 
 
@@ -113,10 +139,15 @@ def update_item(
     )
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
+    # 记录变更前状态
+    old = {key: getattr(item, key) for key in payload.model_dump(exclude_unset=True).keys()}
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, key, value)
+    changes = _item_changes(item, payload, old)
     db.commit()
     db.refresh(item)
+    _log_item(item, "update", f"更新物品「{item.name}」: {changes}", db)
+    db.commit()
     return item
 
 
@@ -133,6 +164,7 @@ def delete_item(
     )
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
+    _log_item(item, "delete", f"删除物品「{item.name}」", db)
     # 清理磁盘图片文件
     img_dir = Path("/app/data/images") / str(item.id)
     if img_dir.exists():
@@ -214,6 +246,41 @@ def get_item_qrcode(
     img.save(buf, format="PNG")
     buf.seek(0)
     return Response(content=buf.getvalue(), media_type="image/png")
+
+
+# ========== 操作日志 ==========
+
+
+@router.get("/{item_id}/logs")
+def get_item_logs(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取物品的操作日志。"""
+    item = (
+        db.query(Item)
+        .filter(Item.id == item_id, Item.owner_id == current_user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
+    logs = (
+        db.query(ItemLog)
+        .filter(ItemLog.item_id == item_id)
+        .order_by(ItemLog.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return [
+        {
+            "id": log.id,
+            "action": log.action,
+            "summary": log.summary,
+            "created_at": log.created_at.isoformat(),
+        }
+        for log in logs
+    ]
 
 
 # ========== 批量操作 ==========
