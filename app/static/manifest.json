@@ -1,6 +1,6 @@
 {
-  "name": "物管家",
-  "short_name": "物管家",
+  "name": "拾光集",
+  "short_name": "拾光集",
   "description": "家居物品管理 - 记录位置/保质期/状态",
   "start_url": "/",
   "display": "standalone",
