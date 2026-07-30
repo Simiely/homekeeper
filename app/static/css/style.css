@@ -370,6 +370,27 @@ table.list button {
   pointer-events: none;
 }
 
+/* ========== 批量操作栏 ========== */
+.batch-bar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.batch-bar select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
 /* ========== 分页 ========== */
 .pagination {
   display: flex;

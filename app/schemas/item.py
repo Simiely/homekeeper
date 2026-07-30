@@ -59,3 +59,11 @@ class PaginatedItems(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class BatchAction(BaseModel):
+    item_ids: list[int]
+    action: str  # "delete" | "archive" | "unarchive" | "update"
+    status: ItemStatus | None = None
+    category_id: int | None = None
+    location_id: int | None = None

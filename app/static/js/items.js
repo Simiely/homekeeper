@@ -297,6 +297,7 @@ export async function renderItems() {
               : `<button class="upload-btn" data-upload-item="${it.id}" title="上传图片">+</button>`;
             return `
         <tr${it.archived ? ' class="archived"' : ""}>
+          <td><input type="checkbox" class="item-cb" value="${it.id}" /></td>
           <td>${escapeHtml(it.name)}</td>
           <td>${locPath(it.location_id) || "—"}${
               it.location_note ? " (" + escapeHtml(it.location_note) + ")" : ""
@@ -324,9 +325,16 @@ export async function renderItems() {
       listEl.innerHTML = `
         <p class="muted">共 ${total} 件 · 第 ${data.page}/${totalPages} 页</p>
         <table class="list">
-          <thead><tr><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th>序列号</th><th>保修</th><th>标签</th><th>图片</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="11" class="muted">无匹配物品</td></tr>'}</tbody>
+          <thead><tr><th style="width:32px"><input type="checkbox" id="select-all" /></th><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th>序列号</th><th>保修</th><th>标签</th><th>图片</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="12" class="muted">无匹配物品</td></tr>'}</tbody>
         </table>
+        <div id="batch-bar" class="batch-bar" style="display:none">
+          <span id="batch-count" class="muted" style="margin-right:8px">已选 0 件</span>
+          <select id="batch-status"><option value="">改状态</option>${STATUS_OPTIONS.map(s => `<option value="${s}">${s}</option>`).join("")}</select>
+          <select id="batch-category"><option value="">改分类</option>${categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select>
+          <button id="batch-archive" class="ghost" style="font-size:12px">归档</button>
+          <button id="batch-delete" class="ghost" style="font-size:12px;color:var(--danger)">删除</button>
+        </div>
         ${renderPagination(data)}
       `;
 
@@ -406,6 +414,69 @@ export async function renderItems() {
           api.del(`/items/${delBtn.dataset.del}`).then(() => loadItems());
         }
       });
+
+      // 批量操作
+      const batchBar = el.querySelector("#batch-bar");
+      const batchCount = el.querySelector("#batch-count");
+
+      function updateBatchBar() {
+        const checked = el.querySelectorAll(".item-cb:checked");
+        const count = checked.length;
+        if (count > 0) {
+          batchBar.style.display = "flex";
+          batchCount.textContent = `已选 ${count} 件`;
+        } else {
+          batchBar.style.display = "none";
+        }
+      }
+
+      // 单选
+      el.querySelectorAll(".item-cb").forEach((cb) => {
+        cb.onchange = updateBatchBar;
+      });
+
+      // 全选
+      el.querySelector("#select-all").onchange = function () {
+        el.querySelectorAll(".item-cb").forEach((cb) => (cb.checked = this.checked));
+        updateBatchBar();
+      };
+
+      // 批量归档
+      el.querySelector("#batch-archive").onclick = () => {
+        const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
+        if (!ids.length) return;
+        api.post("/items/batch", { item_ids: ids, action: "archive" }).then(() => loadItems());
+      };
+
+      // 批量删除
+      el.querySelector("#batch-delete").onclick = () => {
+        const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
+        if (!ids.length) return;
+        if (!confirm(`确认删除 ${ids.length} 件物品？`)) return;
+        api.post("/items/batch", { item_ids: ids, action: "delete" }).then(() => loadItems());
+      };
+
+      // 批量改状态
+      el.querySelector("#batch-status").onchange = function () {
+        if (!this.value) return;
+        const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
+        if (!ids.length) return;
+        api.post("/items/batch", { item_ids: ids, action: "update", status: this.value }).then(() => {
+          this.value = "";
+          loadItems();
+        });
+      };
+
+      // 批量改分类
+      el.querySelector("#batch-category").onchange = function () {
+        if (!this.value) return;
+        const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
+        if (!ids.length) return;
+        api.post("/items/batch", { item_ids: ids, action: "update", category_id: Number(this.value) }).then(() => {
+          this.value = "";
+          loadItems();
+        });
+      };
     }
   } catch (e) {
     el.innerHTML = `<p class="err">${e.message}</p>`;

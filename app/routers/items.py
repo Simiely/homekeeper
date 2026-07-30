@@ -14,7 +14,7 @@ from app.models.item_tag import item_tag_assoc
 from app.models.status import ItemStatus
 from app.models.tag import Tag
 from app.models.user import User
-from app.schemas.item import ItemCreate, ItemOut, ItemUpdate, PaginatedItems
+from app.schemas.item import BatchAction, ItemCreate, ItemOut, ItemUpdate, PaginatedItems
 
 router = APIRouter(prefix="/api/items", tags=["items"])
 
@@ -179,6 +179,46 @@ def unarchive_item(
     db.commit()
     db.refresh(item)
     return item
+
+
+# ========== 批量操作 ==========
+
+
+@router.post("/batch")
+def batch_action(
+    payload: BatchAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """批量操作：删除/归档/更新物品。"""
+    uid = current_user.id
+    items = (
+        db.query(Item)
+        .filter(Item.id.in_(payload.item_ids), Item.owner_id == uid)
+        .all()
+    )
+    if not items:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="未找到匹配物品")
+
+    count = 0
+    for item in items:
+        if payload.action == "delete":
+            db.delete(item)
+        elif payload.action == "archive":
+            item.archived = True
+        elif payload.action == "unarchive":
+            item.archived = False
+        elif payload.action == "update":
+            if payload.status is not None:
+                item.status = payload.status
+            if payload.category_id is not None:
+                item.category_id = payload.category_id
+            if payload.location_id is not None:
+                item.location_id = payload.location_id
+        count += 1
+    db.commit()
+
+    return {"ok": True, "action": payload.action, "affected": count}
 
 
 # ========== 物品-标签关联 ==========
