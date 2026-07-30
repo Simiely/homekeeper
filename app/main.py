@@ -8,7 +8,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, categories, dashboard, items, locations
+from app.routers import auth, categories, dashboard, images, items, locations
+
+IMAGES_DIR = Path("/app/data/images")
 
 # 注意：静态目录 app/static 必须存在，否则启动失败（见 Dockerfile / 部署指南）
 app = FastAPI(title="HomeKeeper 物管家", version="0.1.0")
@@ -16,11 +18,13 @@ app = FastAPI(title="HomeKeeper 物管家", version="0.1.0")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 启动时建表 + 确保图片目录存在
     init_db()
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     yield
 
 
-app = FastAPI(title="HomeKeeper 物管家", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="HomeKeeper 物管家", version="0.4.0", lifespan=lifespan)
 
 
 app.add_middleware(
@@ -36,6 +40,7 @@ app.include_router(items.router)
 app.include_router(locations.router)
 app.include_router(categories.router)
 app.include_router(dashboard.router)
+app.include_router(images.router)
 
 # 静态前端兜底挂载，必须在 API 路由之后
 STATIC_DIR = Path(__file__).resolve().parent / "static"

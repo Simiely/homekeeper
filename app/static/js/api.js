@@ -10,16 +10,17 @@ export function logout() {
   location.href = "/login.html";
 }
 
-async function request(method, path, body) {
+async function request(method, path, body, isFormData) {
   const headers = {};
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  // multipart/form-data：不设 Content-Type，让浏览器自动加 boundary
+  if (!isFormData && body !== undefined) headers["Content-Type"] = "application/json";
 
   const res = await fetch(`${API}${path}`, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
   });
 
   if (res.status === 401) {
@@ -39,4 +40,5 @@ export const api = {
   post: (p, b) => request("POST", p, b),
   put: (p, b) => request("PUT", p, b),
   del: (p) => request("DELETE", p),
+  upload: (p, fd) => request("POST", p, fd, true),
 };

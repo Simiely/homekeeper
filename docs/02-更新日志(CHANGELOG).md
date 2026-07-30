@@ -4,6 +4,28 @@
 
 ---
 
+## [v0.4.0] - 2026-07-30
+
+### 新增
+- **物品图片附件**：每条物品可拍照上传图片（`POST /api/items/{id}/images`）
+  - 后端自动转为 **WebP 格式**（quality=85）
+  - 最长边超过 **2000px** 自动等比缩放（LANCZOS 重采样）
+  - 存储于 `data/images/{item_id}/{uuid}.webp`，Docker 卷持久化
+- **图片管理 API**：
+  - `GET /api/items/{id}/images` — 获取物品图片列表
+  - `GET /api/images/{filename}` — 服务图片文件（供 `<img>` 直接引用）
+  - `DELETE /api/items/{id}/images/{img_id}` — 删除图片（删文件+删记录）
+- **前端图片交互**：
+  - 物品列表增加「图片」列
+  - 有图片 → 显示 60×60 WebP 缩略图，点击放大至全屏预览
+  - 无图片 → 显示「+」上传按钮，点击选文件后自动上传并刷新列表
+  - 上传过程有加载态指示
+
+### 依赖
+- `requirements.txt` 新增 `Pillow>=10.0`（图片处理引擎）
+
+---
+
 ## [v0.3.0] - 2026-07-30
 
 ### 新增

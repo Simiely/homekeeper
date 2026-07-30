@@ -124,32 +124,94 @@ export async function renderItems() {
         return parts.join(" > ");
       };
       const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+
+      // 并发获取所有物品的图片（取第一张）
+      const imgMap = {}; // item_id -> {filename, ...}
+      await Promise.all(
+        items.map(async (it) => {
+          try {
+            const imgs = await api.get(`/items/${it.id}/images`);
+            if (imgs.length > 0) imgMap[it.id] = imgs[0];
+          } catch {
+            // 静默失败，不阻塞列表渲染
+          }
+        })
+      );
+
       const rows = items
         .map(
-          (it) => `
+          (it) => {
+            const img = imgMap[it.id];
+            const imgCell = img
+              ? `<div class="thumb-wrap" data-img="/api/images/${img.filename}" title="点击放大">
+                   <img src="/api/images/${img.filename}" alt="" loading="lazy" />
+                 </div>`
+              : `<button class="upload-btn" data-upload-item="${it.id}" title="上传图片">+</button>`;
+            return `
         <tr>
           <td>${escapeHtml(it.name)}</td>
           <td>${locPath(it.location_id) || "—"}${
-            it.location_note ? " (" + escapeHtml(it.location_note) + ")" : ""
-          }</td>
+              it.location_note ? " (" + escapeHtml(it.location_note) + ")" : ""
+            }</td>
           <td>${catMap[it.category_id] || "—"}</td>
           <td>${it.quantity} ${escapeHtml(it.unit)}</td>
           <td>${escapeHtml(it.status)}</td>
           <td>${it.expiry_date || "—"}</td>
+          <td style="text-align:center">${imgCell}</td>
           <td><button data-del="${it.id}">删</button></td>
-        </tr>`
+        </tr>`;
+          }
         )
         .join("");
 
       listEl.innerHTML = `
         <p class="muted">共 ${items.length} 件</p>
         <table class="list">
-          <thead><tr><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7" class="muted">无匹配物品</td></tr>'}</tbody>
+          <thead><tr><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th>图片</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="8" class="muted">无匹配物品</td></tr>'}</tbody>
         </table>
       `;
 
-      listEl.querySelectorAll("button[data-del]").forEach((b) => {
+      // 上传图片（事件委托）
+      listEl.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-upload-item]");
+        if (!btn) return;
+        const itemId = btn.dataset.uploadItem;
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.addEventListener("change", async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          btn.classList.add("uploading");
+          btn.textContent = "…";
+          try {
+            const form = new FormData();
+            form.append("file", file);
+            await api.upload(`/items/${itemId}/images`, form);
+            loadItems();
+          } catch (err) {
+            alert("上传失败: " + err.message);
+            btn.classList.remove("uploading");
+            btn.textContent = "+";
+          }
+        });
+        input.click();
+      });
+
+      // 图片点击放大（事件委托）
+      listEl.addEventListener("click", (e) => {
+        const wrap = e.target.closest("[data-img]");
+        if (!wrap) return;
+        const src = wrap.dataset.img;
+        const overlay = document.createElement("div");
+        overlay.className = "img-overlay";
+        overlay.innerHTML = `<img src="${src}" alt="" />`;
+        overlay.onclick = () => overlay.remove();
+        document.body.appendChild(overlay);
+      });
+
+      // 行内删除按钮
         b.onclick = async () => {
           if (!confirm("确认删除？")) return;
           await api.del(`/items/${b.dataset.del}`);
