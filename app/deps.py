@@ -24,3 +24,15 @@ def get_current_user(
     if user is None:
         raise credentials_exc
     return user
+
+
+def get_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """仅允许管理员访问。"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="仅管理员可执行此操作",
+        )
+    return current_user
