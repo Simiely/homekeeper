@@ -3,9 +3,28 @@
 > 记录物品**位置**、**保质期**、**状态**的轻量管理工具。Docker 一键部署、浏览器访问；
 > 支持多用户登录（JWT 鉴权、数据隔离）；预留 REST API 供后续安卓端远程调用。
 
+<div align="center">
+
+![Build](https://github.com/Simiely/homekeeper/actions/workflows/docker-build.yml/badge.svg)
+![Docker Image](https://ghcr.io/simiely/homekeeper/badge.svg)
+
+</div>
+
 ---
 
 ## 快速上手（3 步）
+
+### 方式 A：拉取预构建镜像（推荐）
+
+```bash
+docker run -d --name homekeeper \
+  -p 8000:8000 \
+  -v $(pwd)/data:/app/data \
+  -e SECRET_KEY="改为随机字符串" \
+  ghcr.io/simiely/homekeeper:latest
+```
+
+### 方式 B：从源码构建
 
 1. **准备配置**：复制 `.env.example` 为 `.env`，并把 `SECRET_KEY` 改成随机长字符串
    ```bash
