@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440
     cors_origins: str = "*"
+    public_url: str = ""
     backup_interval_hours: int = 1
     backup_retention: int = 48
 

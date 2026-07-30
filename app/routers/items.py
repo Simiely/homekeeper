@@ -1,11 +1,14 @@
 """物品 CRUD，按当前用户隔离；支持按关键词/状态/分类/位置筛选 + 分页。"""
+import io
 from math import ceil
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import qrcode
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.item import Item
@@ -179,6 +182,38 @@ def unarchive_item(
     db.commit()
     db.refresh(item)
     return item
+
+
+# ========== QR 码 ==========
+
+
+@router.get("/{item_id}/qrcode")
+def get_item_qrcode(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """生成物品的二维码图片（PNG）。"""
+    item = (
+        db.query(Item)
+        .filter(Item.id == item_id, Item.owner_id == current_user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
+
+    # 拼接二维码内容
+    base_url = settings.public_url.rstrip("/") if settings.public_url else ""
+    if base_url:
+        content = f"{base_url}/?item={item.id}"
+    else:
+        content = f"物管家 #{item.id}: {item.name}"
+
+    img = qrcode.make(content)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return Response(content=buf.getvalue(), media_type="image/png")
 
 
 # ========== 批量操作 ==========

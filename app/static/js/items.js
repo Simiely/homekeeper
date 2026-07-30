@@ -312,6 +312,7 @@ export async function renderItems() {
           <td style="text-align:center">${imgCell}</td>
           <td style="white-space:nowrap">
             <button data-edit="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">编</button>
+            <button data-qr="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px" title="二维码">◈</button>
             ${it.archived
               ? `<button data-unarchive="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px">取消归档</button>`
               : `<button data-archive="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px">归档</button>`}
@@ -393,6 +394,21 @@ export async function renderItems() {
           const itemId = Number(editBtn.dataset.edit);
           const item = items.find((it) => it.id === itemId);
           if (item) startEdit(item);
+          return;
+        }
+        // 二维码
+        const qrBtn = e.target.closest("[data-qr]");
+        if (qrBtn) {
+          const itemId = qrBtn.dataset.qr;
+          const overlay = document.createElement("div");
+          overlay.className = "img-overlay";
+          overlay.innerHTML = `<div style="background:var(--panel);padding:24px;border-radius:16px;text-align:center;cursor:default">
+            <img src="/api/items/${itemId}/qrcode" style="width:200px;height:200px;border-radius:8px" />
+            <p style="margin:8px 0 0;color:var(--text);font-size:14px">扫码查看物品</p>
+            <p style="margin:4px 0 0;color:var(--muted);font-size:12px">点击任意位置关闭</p>
+          </div>`;
+          overlay.onclick = () => overlay.remove();
+          document.body.appendChild(overlay);
           return;
         }
         // 归档
