@@ -21,6 +21,8 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Create data directory
+        run: sudo mkdir -p /app/data && sudo chmod 777 /app/data
       - name: Run tests
         run: pytest -q
 
