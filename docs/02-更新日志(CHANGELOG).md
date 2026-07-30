@@ -4,6 +4,29 @@
 
 ---
 
+## [v0.5.0] - 2026-07-30
+
+### 新增
+- **Web Push 推送通知**（过期物品提醒）：
+  - VAPID 密钥首次启动自动生成，持久化于 `data/vapid.json`
+  - `GET /api/push/vapid-public-key` — 浏览器获取公钥用于订阅
+  - `POST /api/push/subscribe` — 保存推送订阅
+  - `POST /api/push/unsubscribe` — 取消订阅
+- **定时扫描调度器**（APScheduler）：
+  - 每 6 小时扫描所有用户 **3 天内过期** 的物品
+  - 批量推送合并为一条通知（最多 5 件 + 余数统计）
+  - 无效订阅自动清理（410 Gone）
+- **Service Worker**：
+  - 独立 `service-worker.js`，接收 push event 弹系统通知
+  - 点击通知回到首页
+- **PWA 支持**：
+  - `manifest.json` 主题色、独立显示模式
+  - 顶部栏推送状态按钮（🔕/🔔），点击首次授权
+  - 自动检测权限状态：未配置/已拒绝/已授权
+
+### 依赖
+- `requirements.txt` 新增 `pywebpush`, `apscheduler`
+
 ## [v0.4.0] - 2026-07-30
 
 ### 新增
