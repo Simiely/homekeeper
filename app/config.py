@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440
     cors_origins: str = "*"
+    backup_interval_hours: int = 1
+    backup_retention: int = 48
 
     @property
     def cors_origins_list(self) -> list[str]:

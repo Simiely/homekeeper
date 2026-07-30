@@ -2,6 +2,7 @@
 import { getToken, logout } from "./api.js";
 import { renderItems } from "./items.js";
 import { renderLocations } from "./locations.js";
+import { renderBackups } from "./backups.js";
 import { renderCategories } from "./categories.js";
 import { renderDashboard } from "./dashboard.js";
 import { renderTags } from "./tags.js";
@@ -113,6 +114,7 @@ const views = {
   locations: renderLocations,
   categories: renderCategories,
   tags: renderTags,
+  backups: renderBackups,
 };
 
 document.querySelectorAll("nav button[data-view]").forEach((btn) => {

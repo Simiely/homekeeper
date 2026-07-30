@@ -9,17 +9,25 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.database import init_db
 from app.routers import auth, categories, dashboard, images, items, locations, push, tags
+from app.services.backup import (
+    router as backup_router,
+    start_scheduler as start_backup_scheduler,
+    stop_scheduler as stop_backup_scheduler,
+)
 
 IMAGES_DIR = Path("/app/data/images")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动时建表 + 确保图片目录存在 + 启动推送调度器
+    # 启动时建表 + 确保图片/备份目录存在 + 启动调度器
     init_db()
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    Path("/app/data/backups").mkdir(parents=True, exist_ok=True)
     push.start_scheduler()
+    start_backup_scheduler()
     yield
+    stop_backup_scheduler()
     push.stop_scheduler()
 
 
@@ -41,6 +49,7 @@ app.include_router(dashboard.router)
 app.include_router(images.router)
 app.include_router(push.router)
 app.include_router(tags.router)
+app.include_router(backup_router)
 
 # 静态前端兜底挂载，必须在 API 路由之后
 STATIC_DIR = Path(__file__).resolve().parent / "static"
