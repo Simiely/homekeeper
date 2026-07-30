@@ -2,12 +2,11 @@
 import logging
 import shutil
 from datetime import datetime
-from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import APIRouter, HTTPException
 
-from app.config import settings
+from app.config import DATA_DIR, settings
 from app.database import engine, init_db
 from app.routers.push import start_scheduler as start_push_scheduler
 from app.routers.push import stop_scheduler as stop_push_scheduler
@@ -15,8 +14,9 @@ from app.routers.push import stop_scheduler as stop_push_scheduler
 logger = logging.getLogger("homekeeper.backup")
 router = APIRouter(prefix="/api/backups", tags=["backups"])
 
-BACKUP_DIR = Path("/app/data/backups")
-DB_PATH = Path("/app/data/homekeeper.db")
+# [local-dev] 原仓库为 Path("/app/data/backups") / Path("/app/data/homekeeper.db")，Docker 内路径
+BACKUP_DIR = DATA_DIR / "backups"
+DB_PATH = DATA_DIR / "homekeeper.db"
 
 
 # ========== 备份逻辑 ==========
