@@ -43,11 +43,32 @@ def expiring(
         .order_by(Item.expiry_date)
         .all()
     )
-    return [
-        {
-            "id": it.id,
-            "name": it.name,
-            "expiry_date": it.expiry_date.isoformat() if it.expiry_date else None,
-        }
-        for it in items
-    ]
+    warranty = (
+        db.query(Item)
+        .filter(
+            Item.owner_id == current_user.id,
+            Item.warranty_expiry.isnot(None),
+            Item.warranty_expiry <= threshold,
+        )
+        .order_by(Item.warranty_expiry)
+        .all()
+    )
+    return {
+        "expiring": [
+            {
+                "id": it.id,
+                "name": it.name,
+                "expiry_date": it.expiry_date.isoformat() if it.expiry_date else None,
+            }
+            for it in items
+        ],
+        "warranty_expiring": [
+            {
+                "id": it.id,
+                "name": it.name,
+                "serial_number": it.serial_number,
+                "warranty_expiry": it.warranty_expiry.isoformat() if it.warranty_expiry else None,
+            }
+            for it in warranty
+        ],
+    }

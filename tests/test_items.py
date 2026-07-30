@@ -43,7 +43,7 @@ def test_item_crud(client):
 
     # 过期提醒
     exp = client.get("/api/dashboard/expiring?days=30", headers=h).json()
-    assert any(x["id"] == iid for x in exp)
+    assert any(x["id"] == iid for x in exp["expiring"])
 
     # 删除
     client.delete(f"/api/items/{iid}", headers=h)

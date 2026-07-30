@@ -18,6 +18,8 @@ class ItemBase(BaseModel):
     status: ItemStatus = ItemStatus.IN_STOCK
     expiry_date: date | None = None
     purchase_date: date | None = None
+    serial_number: str | None = None
+    warranty_expiry: date | None = None
 
 
 class ItemCreate(ItemBase):
@@ -35,6 +37,8 @@ class ItemUpdate(BaseModel):
     status: ItemStatus | None = None
     expiry_date: date | None = None
     purchase_date: date | None = None
+    serial_number: str | None = None
+    warranty_expiry: date | None = None
     archived: bool | None = None
 
 

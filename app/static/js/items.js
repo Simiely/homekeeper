@@ -47,6 +47,8 @@ export async function renderItems() {
         </select>
         <input name="expiry_date" type="date" title="保质期" />
         <input name="purchase_date" type="date" title="购买日期" />
+        <input name="serial_number" placeholder="序列号" />
+        <input name="warranty_expiry" type="date" title="保修到期" />
         <select name="tags" multiple size="3" title="标签（按住 Ctrl 多选）">
           <option value="">标签…</option>
           ${tags.map((t) => `<option value="${t.id}" style="color:${t.color}">${escapeHtml(t.name)}</option>`).join("")}
@@ -179,6 +181,8 @@ export async function renderItems() {
       form.querySelector("[name=status]").value = item.status || "在库";
       form.querySelector("[name=expiry_date]").value = item.expiry_date || "";
       form.querySelector("[name=purchase_date]").value = item.purchase_date || "";
+      form.querySelector("[name=serial_number]").value = item.serial_number || "";
+      form.querySelector("[name=warranty_expiry]").value = item.warranty_expiry || "";
       // 修改提交按钮
       const btn = form.querySelector("button[type=submit]");
       btn.textContent = "保存";
@@ -301,6 +305,8 @@ export async function renderItems() {
           <td>${it.quantity} ${escapeHtml(it.unit)}</td>
           <td>${escapeHtml(it.status)}</td>
           <td>${it.expiry_date || "—"}</td>
+          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(it.serial_number || "") || "—"}</td>
+          <td>${it.warranty_expiry || "—"}</td>
           <td>${(it.tags || []).map(t => `<span class="tag-chip" style="background:${t.color}20;color:${t.color};border-color:${t.color}60">${escapeHtml(t.name)}</span>`).join(" ") || "—"}</td>
           <td style="text-align:center">${imgCell}</td>
           <td style="white-space:nowrap">
@@ -318,8 +324,8 @@ export async function renderItems() {
       listEl.innerHTML = `
         <p class="muted">共 ${total} 件 · 第 ${data.page}/${totalPages} 页</p>
         <table class="list">
-          <thead><tr><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th>标签</th><th>图片</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="9" class="muted">无匹配物品</td></tr>'}</tbody>
+          <thead><tr><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th>序列号</th><th>保修</th><th>标签</th><th>图片</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="11" class="muted">无匹配物品</td></tr>'}</tbody>
         </table>
         ${renderPagination(data)}
       `;
@@ -416,6 +422,8 @@ function buildPayload(fd) {
     status: fd.get("status") || "在库",
     expiry_date: fd.get("expiry_date") || null,
     purchase_date: fd.get("purchase_date") || null,
+    serial_number: fd.get("serial_number") || null,
+    warranty_expiry: fd.get("warranty_expiry") || null,
   };
   const lid = fd.get("location_id");
   const cid = fd.get("category_id");
