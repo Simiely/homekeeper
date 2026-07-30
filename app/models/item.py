@@ -42,6 +42,7 @@ class Item(Base):
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), onupdate=func.now()
     )
+    archived: Mapped[bool] = mapped_column(default=False)
 
     tags: Mapped[list["Tag"]] = relationship(  # noqa: F821
         secondary=item_tag_assoc, back_populates="items", lazy="selectin"

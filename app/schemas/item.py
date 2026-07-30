@@ -21,7 +21,7 @@ class ItemBase(BaseModel):
 
 
 class ItemCreate(ItemBase):
-    pass
+    archived: bool = False
 
 
 class ItemUpdate(BaseModel):
@@ -35,6 +35,7 @@ class ItemUpdate(BaseModel):
     status: ItemStatus | None = None
     expiry_date: date | None = None
     purchase_date: date | None = None
+    archived: bool | None = None
 
 
 class ItemOut(ItemBase):
@@ -45,6 +46,7 @@ class ItemOut(ItemBase):
     created_at: datetime
     updated_at: datetime | None = None
     tags: list[TagBrief] = []
+    archived: bool = False
 
 
 class PaginatedItems(BaseModel):

@@ -26,6 +26,7 @@ def list_items(
     category_id: int | None = None,
     location_id: int | None = None,
     tag_id: int | None = None,
+    show_archived: bool = Query(False),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -48,6 +49,8 @@ def list_items(
         q = q.filter(Item.location_id == location_id)
     if tag_id is not None:
         q = q.join(item_tag_assoc).filter(item_tag_assoc.c.tag_id == tag_id)
+    if not show_archived:
+        q = q.filter(Item.archived == False)  # noqa: E712
     total = q.count()
     items = (
         q.order_by(Item.created_at.desc())
@@ -135,6 +138,47 @@ def delete_item(
         img_dir.rmdir()
     db.delete(item)
     db.commit()
+
+
+# ========== 归档 ==========
+
+
+@router.post("/{item_id}/archive", response_model=ItemOut)
+def archive_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = (
+        db.query(Item)
+        .filter(Item.id == item_id, Item.owner_id == current_user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
+    item.archived = True
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/{item_id}/unarchive", response_model=ItemOut)
+def unarchive_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = (
+        db.query(Item)
+        .filter(Item.id == item_id, Item.owner_id == current_user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
+    item.archived = False
+    db.commit()
+    db.refresh(item)
+    return item
 
 
 # ========== 物品-标签关联 ==========

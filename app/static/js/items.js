@@ -65,6 +65,9 @@ export async function renderItems() {
         <button id="export-csv" type="button" class="ghost" style="margin-left:auto">导出 CSV</button>
         <button id="import-csv" type="button" class="ghost">导入 CSV</button>
         <input id="import-file" type="file" accept=".csv" style="display:none" />
+        <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:4px">
+          <input id="f-archived" type="checkbox" /> 显示已归档
+        </label>
       </div>
 
       <div id="item-list"></div>
@@ -115,6 +118,7 @@ export async function renderItems() {
     el.querySelector("#f-category").onchange = doSearch;
     el.querySelector("#f-location").onchange = doSearch;
     el.querySelector("#f-tag").onchange = doSearch;
+    el.querySelector("#f-archived").onchange = doSearch;
     el.querySelector("#f-reset").onclick = () => {
       el.querySelector("#f-keyword").value = "";
       el.querySelector("#f-status").value = "";
@@ -235,6 +239,7 @@ export async function renderItems() {
       if (ca) params.set("category_id", ca);
       if (lo) params.set("location_id", lo);
       if (ta) params.set("tag_id", ta);
+      if (el.querySelector("#f-archived").checked) params.set("show_archived", "true");
       params.set("page", currentPage);
       params.set("page_size", "20");
       const qs = params.toString();
@@ -287,7 +292,7 @@ export async function renderItems() {
                  </div>`
               : `<button class="upload-btn" data-upload-item="${it.id}" title="上传图片">+</button>`;
             return `
-        <tr>
+        <tr${it.archived ? ' class="archived"' : ""}>
           <td>${escapeHtml(it.name)}</td>
           <td>${locPath(it.location_id) || "—"}${
               it.location_note ? " (" + escapeHtml(it.location_note) + ")" : ""
@@ -300,6 +305,9 @@ export async function renderItems() {
           <td style="text-align:center">${imgCell}</td>
           <td style="white-space:nowrap">
             <button data-edit="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">编</button>
+            ${it.archived
+              ? `<button data-unarchive="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px">取消归档</button>`
+              : `<button data-archive="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px">归档</button>`}
             <button data-del="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--danger);padding:4px 8px;border-radius:6px;font-size:12px">删</button>
           </td>
         </tr>`;
@@ -371,6 +379,18 @@ export async function renderItems() {
           const itemId = Number(editBtn.dataset.edit);
           const item = items.find((it) => it.id === itemId);
           if (item) startEdit(item);
+          return;
+        }
+        // 归档
+        const archiveBtn = e.target.closest("[data-archive]");
+        if (archiveBtn) {
+          api.post(`/items/${archiveBtn.dataset.archive}/archive`).then(() => loadItems());
+          return;
+        }
+        // 取消归档
+        const unarchiveBtn = e.target.closest("[data-unarchive]");
+        if (unarchiveBtn) {
+          api.post(`/items/${unarchiveBtn.dataset.unarchive}/unarchive`).then(() => loadItems());
           return;
         }
         // 删除

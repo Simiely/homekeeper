@@ -401,6 +401,12 @@ table.list button {
   padding: 0 2px;
 }
 
+/* ========== 归档 ========== */
+tr.archived td {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
 /* ========== 标签 ========== */
 .tag-chip {
   display: inline-block;
