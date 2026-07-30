@@ -1,27 +1,15 @@
-"""认证：注册 / 登录 / 当前用户。"""
+"""认证：登录 / 当前用户（注册仅管理员可在管理页操作）。"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, verify_password
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
-from app.schemas.user import Token, UserCreate, UserOut
+from app.schemas.user import Token, UserOut
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-
-@router.post("/register", response_model=Token)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
-    exists = db.query(User).filter(User.username == payload.username).first()
-    if exists:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名已存在")
-    user = User(username=payload.username, hashed_password=hash_password(payload.password))
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return Token(access_token=create_access_token(user.username))
 
 
 @router.post("/login", response_model=Token)
