@@ -4,6 +4,39 @@
 
 ---
 
+## [v0.6.1] - 2026-07-30
+
+### 修复（19 个问题——全代码审计）
+
+#### 严重 Bug
+- **items.js**：修复 `currentPage` TDZ 导致物品视图首屏崩溃（`let` 声明移到 `loadItems()` 之前）
+- **push.py**：修复 APScheduler 异常时 DB 会话泄漏（`try/finally` 保证 `db.close()`）
+- **item.py**：`location_id` / `category_id` 外键加 `ondelete="SET NULL"`，删除被引用的分类/位置不再抛 500
+
+#### 前端 Bug
+- **items.js**：标签多选下拉现在实际生效——`buildPayload()` 忽略标签、表单提交未处理标签关联、编辑时不回填
+- **categories.js**：分类颜色圆点可视化（`span.dot` 引用了不存在的 CSS 类，改为内联样式）
+- **items.py**：`total_pages` 在 `total=0` 时返回 0（原返回 1）
+- **categories.js / tags.js**：增加前端编辑功能（编/保存/取消按钮 + 表单回填）
+
+#### 代码清理
+- 🆕 **utils.js**：提取 `escapeHtml` / `buildLocTree` / `buildTreeOptions` 为共用模块，5 个 JS 文件改为 `import`
+- **locations.js / categories.js / dashboard.js / tags.js**：删除本地重复的 `escapeHtml` / `buildTree` 函数
+
+#### 加固
+- **items.py**：删除物品时清理磁盘图片文件（`data/images/{item_id}/`）
+- **images.py**：图片服务 URL 改为 `/api/images/{item_id}/{filename}`，O(1) 直接读取（原遍历所有子目录）
+
+#### 杂项
+- **CORS**：移除 `allow_credentials=True`（与 `allow_origins=["*"]` 冲突，浏览器会拒绝）
+- **deps.py**：`tokenUrl` 补前导 `/`
+- **main.py**：移除废弃的重复 `app = FastAPI()` 定义
+- **app.js**：`initPush()` 仅在已登录时执行，避免重定向前竞态
+- 补 `GET /{id}` 端点：分类 / 位置 / 标签
+- **PWA**：`manifest.json` 加 SVG 图标引用
+
+---
+
 ## [v0.5.0] - 2026-07-30
 
 ### 新增
