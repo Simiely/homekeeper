@@ -1,23 +1,23 @@
-// 登录 / 注册逻辑
+// 登录逻辑
 import { API } from "./api.js";
 
-let mode = "login";
-
-const tabLogin = document.getElementById("tab-login");
-const tabRegister = document.getElementById("tab-register");
 const form = document.getElementById("auth-form");
-const submitBtn = document.getElementById("submit-btn");
 const msg = document.getElementById("msg");
 
-function setMode(m) {
-  mode = m;
-  tabLogin.classList.toggle("active", m === "login");
-  tabRegister.classList.toggle("active", m === "register");
-  submitBtn.textContent = m === "login" ? "登录" : "注册";
-  msg.textContent = "";
+// 修复自动填充后的样式（不用 box-shadow，只用 transition-delay 冻结颜色）
+function fixAutofill() {
+  document.querySelectorAll("input").forEach((el) => {
+    if (el.matches(":-webkit-autofill")) {
+      el.style.setProperty("background-color", "transparent", "important");
+      el.style.setProperty("-webkit-box-shadow", "none", "important");
+      el.style.setProperty("box-shadow", "none", "important");
+    }
+  });
 }
-tabLogin.onclick = () => setMode("login");
-tabRegister.onclick = () => setMode("register");
+
+// 页面加载后等一段时间再查（等浏览器自动填充完成）
+setTimeout(fixAutofill, 200);
+setTimeout(fixAutofill, 800);
 
 form.onsubmit = async (e) => {
   e.preventDefault();
@@ -25,24 +25,13 @@ form.onsubmit = async (e) => {
   const password = document.getElementById("password").value;
   msg.textContent = "";
   try {
-    if (mode === "login") {
-      const fd = new FormData();
-      fd.append("username", username);
-      fd.append("password", password);
-      const res = await fetch(`${API}/auth/login`, { method: "POST", body: fd });
-      if (!res.ok) throw new Error((await res.json()).detail || "登录失败");
-      const data = await res.json();
-      localStorage.setItem("hk_token", data.access_token);
-    } else {
-      const res = await fetch(`${API}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      if (!res.ok) throw new Error((await res.json()).detail || "注册失败");
-      const data = await res.json();
-      localStorage.setItem("hk_token", data.access_token);
-    }
+    const fd = new FormData();
+    fd.append("username", username);
+    fd.append("password", password);
+    const res = await fetch(`${API}/auth/login`, { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.json()).detail || "登录失败");
+    const data = await res.json();
+    localStorage.setItem("hk_token", data.access_token);
     location.href = "/";
   } catch (err) {
     msg.textContent = err.message;
