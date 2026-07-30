@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from PIL import Image
 from sqlalchemy.orm import Session
 
+from app.config import DATA_DIR
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.item import Item
@@ -17,7 +18,8 @@ from app.schemas.item_image import ItemImageOut
 
 router = APIRouter(tags=["images"])
 
-IMAGES_DIR = Path("/app/data/images")
+# [local-dev] 原仓库为 Path("/app/data/images")，Docker 内路径
+IMAGES_DIR = DATA_DIR / "images"
 MAX_DIM = 2000  # 最长边像素上限
 WEBP_QUALITY = 85
 
