@@ -212,9 +212,9 @@ def _check_all_users():
             for sub in subs:
                 _send_push(v, sub, payload, db)
 
-            # 企业微信推送（每个用户一条汇总）
-            if settings.wecom_webhook_url:
-                _send_wecom_notification(expiring, today, settings.wecom_webhook_url)
+            # 企业微信推送（应用消息 + 群消息）
+            if settings.wecom_corp_id or settings.wecom_webhook_url:
+                _send_wecom(expiring, today)
     except Exception:
         logger.exception("推送扫描异常")
     finally:
@@ -247,30 +247,34 @@ def _send_push(v: Vapid, sub: PushSubscription, payload: str, db: Session):
             logger.warning("推送失败 endpoint=%s: %s", sub.endpoint[:60], err_str[:100])
 
 
-def _send_wecom_notification(
-    expiring: list, today: date, webhook_url: str
-) -> None:
-    """发送过期提醒到企业微信群机器人。"""
-    if not webhook_url:
+def _send_wecom(expiring: list, today: date) -> None:
+    """发送过期提醒到微信（通过 Server酱）。"""
+    sendkey = settings.serverchan_sendkey
+    if not sendkey:
         return
-    lines = ["📦 **物管家 · 过期提醒**\n━━━━━━━━━━━━━━━━━━"]
+
+    lines = []
     for it in expiring[:10]:
         days = (it.expiry_date - today).days
         emoji = "🔴" if days <= 1 else "🟡"
         lines.append(f"{emoji} **{it.name}** — 还有 {days} 天过期")
     if len(expiring) > 10:
-        lines.append(f"\n…还有 {len(expiring) - 10} 件")
-    lines.append(f"\n━━━━━━━━━━━━━━━━━━\n⏰ 共 {len(expiring)} 件物品即将过期")
+        lines.append(f"…还有 {len(expiring) - 10} 件")
+    summary = "\n".join(lines)
+
+    title = f"📦 {len(expiring)} 件物品即将过期"
+    desp = f"以下物品即将过期：\n\n{summary}\n\n━━━━━━━━━━━━━━\n请及时处理。"
 
     try:
         resp = requests.post(
-            webhook_url,
-            json={"msgtype": "markdown", "markdown": {"content": "\n".join(lines)}},
+            f"https://sctapi.ftqq.com/{sendkey}.send",
+            data={"title": title, "desp": desp},
             timeout=10,
         )
-        if resp.status_code != 200:
-            logger.warning("企业微信推送失败: %s %s", resp.status_code, resp.text[:200])
+        data = resp.json()
+        if data.get("code") == 0:
+            logger.info("Server酱推送成功（%d 件）", len(expiring))
         else:
-            logger.info("企业微信推送成功（%d 件）", len(expiring))
+            logger.warning("Server酱推送失败: %s", data.get("message", ""))
     except Exception as e:
-        logger.warning("企业微信推送异常: %s", e)
+        logger.warning("Server酱推送异常: %s", e)
