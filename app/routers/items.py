@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from app.config import DATA_DIR, settings
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.item import Item
@@ -166,7 +166,8 @@ def delete_item(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
     _log_item(item, "delete", f"删除物品「{item.name}」", db)
     # 清理磁盘图片文件
-    img_dir = Path("/app/data/images") / str(item.id)
+    # [local-dev] 原仓库为 Path("/app/data/images")，Docker 内路径
+    img_dir = DATA_DIR / "images" / str(item.id)
     if img_dir.exists():
         for f in img_dir.iterdir():
             f.unlink()
@@ -239,7 +240,7 @@ def get_item_qrcode(
     if base_url:
         content = f"{base_url}/?item={item.id}"
     else:
-        content = f"物管家 #{item.id}: {item.name}"
+        content = f"拾光集 #{item.id}: {item.name}"
 
     img = qrcode.make(content)
     buf = io.BytesIO()
