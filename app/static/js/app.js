@@ -1,86 +1,142 @@
-// 导航调度：视图切换、鉴权检查
-import { getToken, logout } from "./api.js";
+// 导航调度：视图切换、鉴权检查、管理员判断
+import { getToken, logout, api } from "./api.js";
 import { renderItems } from "./items.js";
 import { renderLocations } from "./locations.js";
 import { renderBackups } from "./backups.js";
 import { renderCategories } from "./categories.js";
 import { renderDashboard } from "./dashboard.js";
 import { renderTags } from "./tags.js";
+import { renderAdmin } from "./admin.js";
 
 if (!getToken()) location.href = "/login.html";
 
 document.getElementById("logout").onclick = logout;
 
+// ========== 检查管理员身份 ==========
+
+async function checkAdmin() {
+  try {
+    const user = await api.get("/auth/me");
+    if (user.is_admin) {
+      document.querySelectorAll(".admin-only").forEach((el) => (el.style.display = ""));
+    }
+  } catch {
+    // 非管理员或请求失败，保持隐藏
+  }
+}
+checkAdmin();
+
 // ========== Web Push 订阅 ==========
 
 async function initPush() {
   const notifBtn = document.getElementById("notif-btn");
+
+  // 浏览器不支持推送 → 直接禁用
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     notifBtn.textContent = "🔕";
     notifBtn.title = "此浏览器不支持推送";
     return;
   }
-  try {
-    // 获取 VAPID 公钥
-    const resp = await fetch("/api/push/vapid-public-key");
-    if (!resp.ok) {
-      notifBtn.textContent = "🔕";
-      notifBtn.title = "推送未配置（管理员未设置 VAPID 密钥）";
-      return;
-    }
-    const { public_key } = await resp.json();
 
-    // 检查权限
-    if (Notification.permission === "denied") {
-      notifBtn.textContent = "🔕";
-      notifBtn.title = "推送已被拒绝，请在浏览器设置中开启";
-      return;
-    }
-
-    // 注册 Service Worker
-    const reg = await navigator.serviceWorker.register("/service-worker.js");
-    const existingSub = await reg.pushManager.getSubscription();
-
-    if (existingSub) {
-      notifBtn.textContent = "🔔";
-      notifBtn.title = "推送已开启";
-      return;
-    }
-
-    if (Notification.permission === "granted") {
-      // 权限已给但无订阅 → 创建订阅
-      const newSub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(public_key),
-      });
-      await saveSubscription(newSub);
-      notifBtn.textContent = "🔔";
-      notifBtn.title = "推送已开启";
-      return;
-    }
-
-    // permission === "default" → 还没问过，显示默认状态
+  // 已经拒绝过 → 提示去设置开启
+  if (Notification.permission === "denied") {
     notifBtn.textContent = "🔕";
-    notifBtn.title = "点击开启推送通知";
-    notifBtn.onclick = async () => {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
-      try {
-        const sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(public_key),
-        });
-        await saveSubscription(sub);
-        notifBtn.textContent = "🔔";
-        notifBtn.title = "推送已开启";
-        notifBtn.onclick = null;
-      } catch (e) {
-        console.warn("订阅失败:", e.message);
-      }
-    };
-  } catch (e) {
-    console.warn("推送初始化失败:", e.message);
+    notifBtn.title = "推送已被拒绝，请在浏览器设置中开启";
+    return;
   }
+
+  // 获取 VAPID 公钥（异步）
+  let publicKey = "";
+  try {
+    const resp = await fetch("/api/push/vapid-public-key");
+    if (resp.ok) {
+      const data = await resp.json();
+      publicKey = data.public_key;
+    }
+  } catch {
+    // VAPID 不可用时按钮照样可点，点击时再试
+  }
+
+  // 注册 Service Worker
+  let reg = null;
+  try {
+    reg = await navigator.serviceWorker.register("/service-worker.js");
+  } catch {
+    // 注册失败，按钮仍然可点
+  }
+
+  // 检查已有订阅
+  let existingSub = null;
+  if (reg) {
+    try {
+      existingSub = await reg.pushManager.getSubscription();
+    } catch {
+      // 忽略
+    }
+  }
+
+  if (existingSub) {
+    notifBtn.textContent = "🔔";
+    notifBtn.title = "推送已开启";
+    return;
+  }
+
+  // ----- 统一点击处理：无论什么状态，点击就尝试开启 -----
+  notifBtn.textContent = "🔕";
+  notifBtn.title = "点击开启推送通知";
+
+  notifBtn.onclick = async () => {
+    // 请求权限
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      notifBtn.textContent = "🔕";
+      notifBtn.title = "推送权限被拒绝";
+      return;
+    }
+
+    // 重新获取 VAPID 公钥（如果之前没拿到）
+    let pk = publicKey;
+    if (!pk) {
+      try {
+        const resp = await fetch("/api/push/vapid-public-key");
+        if (resp.ok) {
+          const data = await resp.json();
+          pk = data.public_key;
+        }
+      } catch {
+        notifBtn.textContent = "🔕";
+        notifBtn.title = "推送配置异常，请联系管理员";
+        return;
+      }
+    }
+
+    // 注册/获取 Service Worker
+    let swReg = reg;
+    if (!swReg) {
+      try {
+        swReg = await navigator.serviceWorker.register("/service-worker.js");
+      } catch {
+        notifBtn.textContent = "🔕";
+        notifBtn.title = "Service Worker 注册失败";
+        return;
+      }
+    }
+
+    // 订阅推送
+    try {
+      const sub = await swReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(pk),
+      });
+      await saveSubscription(sub);
+      notifBtn.textContent = "🔔";
+      notifBtn.title = "推送已开启";
+      notifBtn.onclick = null;
+    } catch (e) {
+      notifBtn.textContent = "🔕";
+      notifBtn.title = "订阅失败: " + e.message;
+    }
+  };
 }
 
 async function saveSubscription(sub) {
@@ -115,6 +171,7 @@ const views = {
   categories: renderCategories,
   tags: renderTags,
   backups: renderBackups,
+  admin: renderAdmin,
 };
 
 document.querySelectorAll("nav button[data-view]").forEach((btn) => {
