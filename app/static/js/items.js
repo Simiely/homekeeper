@@ -54,7 +54,7 @@ export async function renderItems() {
       </form>
 
       <div id="filter-bar" class="card">
-        <input id="f-keyword" placeholder="搜索名称…" />
+        <input id="f-keyword" placeholder="搜索名称/描述/备注…" />
         <select id="f-status">${statusOpts}</select>
         <select id="f-category">${catOpts}</select>
         <select id="f-location">${locOpts}</select>

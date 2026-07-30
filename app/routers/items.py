@@ -2,6 +2,7 @@
 from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -30,7 +31,13 @@ def list_items(
 ):
     q = db.query(Item).filter(Item.owner_id == current_user.id)
     if keyword:
-        q = q.filter(Item.name.contains(keyword))
+        q = q.filter(
+            or_(
+                Item.name.contains(keyword),
+                Item.description.contains(keyword),
+                Item.location_note.contains(keyword),
+            )
+        )
     if status_filter is not None:
         q = q.filter(Item.status == status_filter)
     if category_id is not None:
