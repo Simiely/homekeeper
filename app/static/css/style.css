@@ -246,3 +246,58 @@ table.list button {
   font-size: 13px;
   min-height: 18px;
 }
+
+/* ========== 树视图 ========== */
+.tree {
+  list-style: none;
+  padding-left: 0;
+  margin: 8px 0;
+}
+.tree ul {
+  list-style: none;
+  padding-left: 24px;
+  margin: 0;
+}
+.tree li {
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tree li:hover {
+  background: var(--panel-2);
+}
+.tree .tree-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.tree .tree-name {
+  font-weight: 500;
+}
+.tree .tree-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+.tree .tree-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--danger);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tree .tree-btn:hover {
+  background: var(--danger);
+  color: #fff;
+}

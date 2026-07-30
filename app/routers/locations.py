@@ -6,7 +6,12 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models.location import Location
 from app.models.user import User
-from app.schemas.location import LocationCreate, LocationOut, LocationUpdate
+from app.schemas.location import (
+    LocationCreate,
+    LocationOut,
+    LocationTreeNode,
+    LocationUpdate,
+)
 
 router = APIRouter(prefix="/api/locations", tags=["locations"])
 
@@ -22,6 +27,37 @@ def list_locations(
         .order_by(Location.id)
         .all()
     )
+
+
+@router.get("/tree", response_model=list[LocationTreeNode])
+def list_location_tree(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """返回按 parent_id 组装的层级树。"""
+    locations = (
+        db.query(Location)
+        .filter(Location.owner_id == current_user.id)
+        .order_by(Location.id)
+        .all()
+    )
+    lookup = {
+        loc.id: {
+            "id": loc.id,
+            "name": loc.name,
+            "parent_id": loc.parent_id,
+            "note": loc.note,
+            "children": [],
+        }
+        for loc in locations
+    }
+    roots: list[dict] = []
+    for node in lookup.values():
+        if node["parent_id"] is None:
+            roots.append(node)
+        elif node["parent_id"] in lookup:
+            lookup[node["parent_id"]]["children"].append(node)
+    return roots
 
 
 @router.post("", response_model=LocationOut, status_code=status.HTTP_201_CREATED)

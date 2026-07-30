@@ -26,3 +26,13 @@ class LocationOut(LocationBase):
     id: int
     owner_id: int
     created_at: datetime
+
+
+class LocationTreeNode(BaseModel):
+    """递归树节点，用于 GET /api/locations/tree。"""
+
+    id: int
+    name: str
+    parent_id: int | None
+    note: str
+    children: list["LocationTreeNode"] = []

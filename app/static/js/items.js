@@ -19,7 +19,7 @@ export async function renderItems() {
       .concat(categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`))
       .join("");
     const locOpts = ['<option value="">全部位置</option>']
-      .concat(locations.map((l) => `<option value="${l.id}">${escapeHtml(l.name)}</option>`))
+      .concat(buildTreeOptions(locations))
       .join("");
 
     el.innerHTML = `
@@ -28,8 +28,7 @@ export async function renderItems() {
         <input name="name" placeholder="物品名称" required />
         <input name="description" placeholder="描述" />
         <select name="location_id">
-          <option value="">位置（可选）</option>
-          ${locations.map((l) => `<option value="${l.id}">${escapeHtml(l.name)}</option>`).join("")}
+          ${buildTreeOptions(locations, "位置（可选）")}
         </select>
         <input name="location_note" placeholder="备注位置" />
         <select name="category_id">
@@ -112,14 +111,25 @@ export async function renderItems() {
         return;
       }
 
-      const locMap = Object.fromEntries(locations.map((l) => [l.id, l.name]));
+      const parentMap = Object.fromEntries(locations.map((l) => [l.id, l.parent_id]));
+      const nameMap = Object.fromEntries(locations.map((l) => [l.id, l.name]));
+      const locPath = (id) => {
+        if (!id) return null;
+        const parts = [];
+        let cur = id;
+        while (cur && nameMap[cur]) {
+          parts.unshift(nameMap[cur]);
+          cur = parentMap[cur];
+        }
+        return parts.join(" > ");
+      };
       const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
       const rows = items
         .map(
           (it) => `
         <tr>
           <td>${escapeHtml(it.name)}</td>
-          <td>${locMap[it.location_id] || "—"}${
+          <td>${locPath(it.location_id) || "—"}${
             it.location_note ? " (" + escapeHtml(it.location_note) + ")" : ""
           }</td>
           <td>${catMap[it.category_id] || "—"}</td>
@@ -150,6 +160,33 @@ export async function renderItems() {
   } catch (e) {
     el.innerHTML = `<p class="err">${e.message}</p>`;
   }
+}
+
+// ---- 位置树辅助（用于缩进下拉） ----
+
+function buildLocTree(locations) {
+  const lookup = {};
+  locations.forEach((l) => (lookup[l.id] = { ...l, children: [] }));
+  const roots = [];
+  locations.forEach((l) => {
+    if (l.parent_id === null) roots.push(lookup[l.id]);
+    else if (lookup[l.parent_id]) lookup[l.parent_id].children.push(lookup[l.id]);
+  });
+  return roots;
+}
+
+function buildTreeOptions(locations, placeholder) {
+  const tree = buildLocTree(locations);
+  let html = placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : "";
+  const walk = (nodes, depth) => {
+    for (const node of nodes) {
+      const prefix = depth > 0 ? "　".repeat(depth) + "├── " : "";
+      html += `<option value="${node.id}">${prefix}${escapeHtml(node.name)}</option>`;
+      if (node.children.length) walk(node.children, depth + 1);
+    }
+  };
+  walk(tree, 0);
+  return html;
 }
 
 function buildPayload(fd) {
