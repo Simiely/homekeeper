@@ -1,1 +1,0 @@
-# SQLite 数据卷目录。运行时 homekeeper.db 生成于此，已通过 docker-compose 持久化挂载，不进 git。

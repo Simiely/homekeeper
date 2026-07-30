@@ -62,7 +62,12 @@ export async function renderItems() {
       e.preventDefault();
       const fd = new FormData(e.target);
       try {
-        await api.post("/items", buildPayload(fd));
+        if (editingItemId) {
+          await api.put(`/items/${editingItemId}`, buildPayload(fd));
+          cancelEdit();
+        } else {
+          await api.post("/items", buildPayload(fd));
+        }
         loadItems();
       } catch (err) {
         alert(err.message);
@@ -88,6 +93,47 @@ export async function renderItems() {
 
     // 初次加载列表
     loadItems();
+
+    // ---- 编辑模式 ----
+    let editingItemId = null;
+
+    function startEdit(item) {
+      editingItemId = item.id;
+      const form = el.querySelector("#item-form");
+      form.querySelector("[name=name]").value = item.name || "";
+      form.querySelector("[name=description]").value = item.description || "";
+      form.querySelector("[name=location_id]").value = item.location_id ?? "";
+      form.querySelector("[name=location_note]").value = item.location_note || "";
+      form.querySelector("[name=category_id]").value = item.category_id ?? "";
+      form.querySelector("[name=quantity]").value = item.quantity;
+      form.querySelector("[name=unit]").value = item.unit || "";
+      form.querySelector("[name=status]").value = item.status || "在库";
+      form.querySelector("[name=expiry_date]").value = item.expiry_date || "";
+      form.querySelector("[name=purchase_date]").value = item.purchase_date || "";
+      // 修改提交按钮
+      const btn = form.querySelector("button[type=submit]");
+      btn.textContent = "保存";
+      if (!form.querySelector("#edit-cancel")) {
+        const cancel = document.createElement("button");
+        cancel.id = "edit-cancel";
+        cancel.type = "button";
+        cancel.textContent = "取消";
+        cancel.className = "ghost";
+        cancel.onclick = cancelEdit;
+        btn.after(cancel);
+      }
+      // 滚动到表单
+      form.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    function cancelEdit() {
+      editingItemId = null;
+      const form = el.querySelector("#item-form");
+      form.reset();
+      form.querySelector("button[type=submit]").textContent = "添加";
+      const cancel = form.querySelector("#edit-cancel");
+      if (cancel) cancel.remove();
+    }
 
     async function loadItems() {
       const listEl = el.querySelector("#item-list");
@@ -158,7 +204,10 @@ export async function renderItems() {
           <td>${escapeHtml(it.status)}</td>
           <td>${it.expiry_date || "—"}</td>
           <td style="text-align:center">${imgCell}</td>
-          <td><button data-del="${it.id}">删</button></td>
+          <td style="white-space:nowrap">
+            <button data-edit="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">编</button>
+            <button data-del="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--danger);padding:4px 8px;border-radius:6px;font-size:12px">删</button>
+          </td>
         </tr>`;
           }
         )
@@ -211,12 +260,22 @@ export async function renderItems() {
         document.body.appendChild(overlay);
       });
 
-      // 行内删除按钮
-        b.onclick = async () => {
+      // 操作按钮（编辑/删除）事件委托
+      listEl.addEventListener("click", (e) => {
+        // 编辑
+        const editBtn = e.target.closest("[data-edit]");
+        if (editBtn) {
+          const itemId = Number(editBtn.dataset.edit);
+          const item = items.find((it) => it.id === itemId);
+          if (item) startEdit(item);
+          return;
+        }
+        // 删除
+        const delBtn = e.target.closest("[data-del]");
+        if (delBtn) {
           if (!confirm("确认删除？")) return;
-          await api.del(`/items/${b.dataset.del}`);
-          loadItems();
-        };
+          api.del(`/items/${delBtn.dataset.del}`).then(() => loadItems());
+        }
       });
     }
   } catch (e) {
