@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, categories, dashboard, data, images, items, locations, push, tags
+from app.routers import auth, borrow, categories, dashboard, data, images, items, locations, push, tags
 from app.services.backup import (
     router as backup_router,
     start_scheduler as start_backup_scheduler,
@@ -49,6 +49,7 @@ app.include_router(dashboard.router)
 app.include_router(images.router)
 app.include_router(push.router)
 app.include_router(tags.router)
+app.include_router(borrow.router)
 app.include_router(data.router)
 app.include_router(backup_router)
 
