@@ -3,6 +3,7 @@
 
 # Python 缓存
 __pycache__/
+.pytest_cache/
 *.pyc
 
 # 本地数据（SQLite 由 docker 卷持久化）
