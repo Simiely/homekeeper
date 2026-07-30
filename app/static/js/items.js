@@ -62,6 +62,9 @@ export async function renderItems() {
         <select id="f-tag">${tagOpts}</select>
         <button id="f-search" type="button">搜索</button>
         <button id="f-reset" type="button" class="ghost">重置</button>
+        <button id="export-csv" type="button" class="ghost" style="margin-left:auto">导出 CSV</button>
+        <button id="import-csv" type="button" class="ghost">导入 CSV</button>
+        <input id="import-file" type="file" accept=".csv" style="display:none" />
       </div>
 
       <div id="item-list"></div>
@@ -119,6 +122,37 @@ export async function renderItems() {
       el.querySelector("#f-location").value = "";
       el.querySelector("#f-tag").value = "";
       loadItems();
+    };
+
+    // 导出 CSV
+    el.querySelector("#export-csv").onclick = () => {
+      const token = localStorage.getItem("hk_token");
+      if (!token) return;
+      // 在新窗口下载，避免阻塞
+      window.open(`/api/export/items?t=${Date.now()}`, "_blank");
+    };
+
+    // 导入 CSV
+    const fileInput = el.querySelector("#import-file");
+    el.querySelector("#import-csv").onclick = () => fileInput.click();
+    fileInput.onchange = async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      const form = new FormData();
+      form.append("file", file);
+      try {
+        const result = await api.upload("/import/items", form);
+        let msg = `导入完成：${result.imported} 条成功`;
+        if (result.errors?.length) {
+          msg += `\n${result.errors.length} 条错误：\n${result.errors.slice(0, 5).join("\n")}`;
+          if (result.errors.length > 5) msg += `\n…还有 ${result.errors.length - 5} 条`;
+        }
+        alert(msg);
+        loadItems();
+      } catch (e) {
+        alert("导入失败：" + e.message);
+      }
+      fileInput.value = "";
     };
 
     // ---- 编辑模式 ----
