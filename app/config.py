@@ -14,9 +14,6 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440
     cors_origins: str = "*"
 
-    # Server酱 微信推送（sct.ftqq.com）
-    serverchan_sendkey: str = ""
-
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

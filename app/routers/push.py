@@ -8,9 +8,7 @@ from urllib.parse import urlparse
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import APIRouter, Depends, HTTPException, status
-import requests
 
-from app.config import settings
 from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid
 from pywebpush import webpush
@@ -211,10 +209,6 @@ def _check_all_users():
             )
             for sub in subs:
                 _send_push(v, sub, payload, db)
-
-            # 企业微信推送（应用消息 + 群消息）
-            if settings.wecom_corp_id or settings.wecom_webhook_url:
-                _send_wecom(expiring, today)
     except Exception:
         logger.exception("推送扫描异常")
     finally:
@@ -247,34 +241,3 @@ def _send_push(v: Vapid, sub: PushSubscription, payload: str, db: Session):
             logger.warning("推送失败 endpoint=%s: %s", sub.endpoint[:60], err_str[:100])
 
 
-def _send_wecom(expiring: list, today: date) -> None:
-    """发送过期提醒到微信（通过 Server酱）。"""
-    sendkey = settings.serverchan_sendkey
-    if not sendkey:
-        return
-
-    lines = []
-    for it in expiring[:10]:
-        days = (it.expiry_date - today).days
-        emoji = "🔴" if days <= 1 else "🟡"
-        lines.append(f"{emoji} **{it.name}** — 还有 {days} 天过期")
-    if len(expiring) > 10:
-        lines.append(f"…还有 {len(expiring) - 10} 件")
-    summary = "\n".join(lines)
-
-    title = f"📦 {len(expiring)} 件物品即将过期"
-    desp = f"以下物品即将过期：\n\n{summary}\n\n━━━━━━━━━━━━━━\n请及时处理。"
-
-    try:
-        resp = requests.post(
-            f"https://sctapi.ftqq.com/{sendkey}.send",
-            data={"title": title, "desp": desp},
-            timeout=10,
-        )
-        data = resp.json()
-        if data.get("code") == 0:
-            logger.info("Server酱推送成功（%d 件）", len(expiring))
-        else:
-            logger.warning("Server酱推送失败: %s", data.get("message", ""))
-    except Exception as e:
-        logger.warning("Server酱推送异常: %s", e)
