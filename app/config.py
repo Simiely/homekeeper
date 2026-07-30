@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440
     cors_origins: str = "*"
 
+    # 企业微信 Webhook
+    wecom_webhook_url: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
