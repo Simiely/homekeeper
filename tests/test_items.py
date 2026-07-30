@@ -34,7 +34,8 @@ def test_item_crud(client):
 
     # 列表
     lst = client.get("/api/items", headers=h).json()
-    assert len(lst) == 1
+    assert len(lst["items"]) == 1
+    assert lst["total"] == 1
 
     # 更新状态
     r2 = client.put(f"/api/items/{iid}", json={"status": "已借出"}, headers=h)
@@ -46,7 +47,9 @@ def test_item_crud(client):
 
     # 删除
     client.delete(f"/api/items/{iid}", headers=h)
-    assert len(client.get("/api/items", headers=h).json()) == 0
+    res = client.get("/api/items", headers=h).json()
+    assert len(res["items"]) == 0
+    assert res["total"] == 0
 
 
 def test_item_isolation(client):
@@ -57,7 +60,7 @@ def test_item_isolation(client):
 
     tb = _login(client, "userB")
     lb = client.get("/api/items", headers={"Authorization": f"Bearer {tb}"}).json()
-    assert len(lb) == 0
+    assert len(lb["items"]) == 0
 
 
 def test_item_filter(client):
@@ -78,16 +81,16 @@ def test_item_filter(client):
     client.post("/api/items", json={"name": "牛奶", "status": "已借出"}, headers=h)
 
     r1 = client.get("/api/items?keyword=螺丝", headers=h).json()
-    assert len(r1) == 1 and r1[0]["name"] == "螺丝刀"
+    assert len(r1["items"]) == 1 and r1["items"][0]["name"] == "螺丝刀"
 
     r2 = client.get(f"/api/items?category_id={cat['id']}", headers=h).json()
-    assert len(r2) == 1 and r2[0]["name"] == "螺丝刀"
+    assert len(r2["items"]) == 1 and r2["items"][0]["name"] == "螺丝刀"
 
     r3 = client.get(f"/api/items?location_id={loc['id']}", headers=h).json()
-    assert len(r3) == 1
+    assert len(r3["items"]) == 1
 
     r4 = client.get("/api/items?status_filter=已借出", headers=h).json()
-    assert len(r4) == 1 and r4[0]["name"] == "牛奶"
+    assert len(r4["items"]) == 1 and r4["items"][0]["name"] == "牛奶"
 
     r5 = client.get("/api/items?keyword=螺丝&status_filter=在库", headers=h).json()
-    assert len(r5) == 1
+    assert len(r5["items"]) == 1

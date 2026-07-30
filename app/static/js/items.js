@@ -75,7 +75,7 @@ export async function renderItems() {
     };
 
     // 筛选交互
-    const doSearch = () => loadItems();
+    const doSearch = () => { currentPage = 1; loadItems(); };
     el.querySelector("#f-search").onclick = doSearch;
     el.querySelector("#f-keyword").addEventListener("keydown", (e) => {
       if (e.key === "Enter") doSearch();
@@ -96,6 +96,7 @@ export async function renderItems() {
 
     // ---- 编辑模式 ----
     let editingItemId = null;
+    let currentPage = 1;
 
     function startEdit(item) {
       editingItemId = item.id;
@@ -135,6 +136,27 @@ export async function renderItems() {
       if (cancel) cancel.remove();
     }
 
+    function renderPagination(d) {
+      if (d.total_pages <= 1) return "";
+      let html = '<div class="pagination">';
+      const prevDisabled = d.page <= 1 ? "disabled" : "";
+      html += `<button class="page-btn" data-page="${d.page - 1}" ${prevDisabled}>‹ 上一页</button>`;
+      // 显示页码范围
+      const start = Math.max(1, d.page - 2);
+      const end = Math.min(d.total_pages, d.page + 2);
+      if (start > 1) html += `<button class="page-btn" data-page="1">1</button>${start > 2 ? '<span class="page-ellipsis">…</span>' : ""}`;
+      for (let p = start; p <= end; p++) {
+        html += `<button class="page-btn" data-page="${p}"${p === d.page ? ' style="background:var(--accent);color:#fff;border-color:var(--accent)"' : ""}>${p}</button>`;
+      }
+      if (end < d.total_pages) {
+        html += `${end < d.total_pages - 1 ? '<span class="page-ellipsis">…</span>' : ""}<button class="page-btn" data-page="${d.total_pages}">${d.total_pages}</button>`;
+      }
+      const nextDisabled = d.page >= d.total_pages ? "disabled" : "";
+      html += `<button class="page-btn" data-page="${d.page + 1}" ${nextDisabled}>下一页 ›</button>`;
+      html += "</div>";
+      return html;
+    }
+
     async function loadItems() {
       const listEl = el.querySelector("#item-list");
       listEl.innerHTML = "<div class='loading'>加载中…</div>";
@@ -147,15 +169,20 @@ export async function renderItems() {
       if (st) params.set("status_filter", st);
       if (ca) params.set("category_id", ca);
       if (lo) params.set("location_id", lo);
+      params.set("page", currentPage);
+      params.set("page_size", "20");
       const qs = params.toString();
 
-      let items;
+      let data;
       try {
-        items = await api.get("/items" + (qs ? "?" + qs : ""));
+        data = await api.get("/items?" + qs);
       } catch (e) {
         listEl.innerHTML = `<p class="err">${e.message}</p>`;
         return;
       }
+      const items = data.items;
+      const total = data.total;
+      const totalPages = data.total_pages;
 
       const parentMap = Object.fromEntries(locations.map((l) => [l.id, l.parent_id]));
       const nameMap = Object.fromEntries(locations.map((l) => [l.id, l.name]));
@@ -214,11 +241,12 @@ export async function renderItems() {
         .join("");
 
       listEl.innerHTML = `
-        <p class="muted">共 ${items.length} 件</p>
+        <p class="muted">共 ${total} 件 · 第 ${data.page}/${totalPages} 页</p>
         <table class="list">
           <thead><tr><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>状态</th><th>保质期</th><th>图片</th><th></th></tr></thead>
           <tbody>${rows || '<tr><td colspan="8" class="muted">无匹配物品</td></tr>'}</tbody>
         </table>
+        ${renderPagination(data)}
       `;
 
       // 上传图片（事件委托）
@@ -260,8 +288,16 @@ export async function renderItems() {
         document.body.appendChild(overlay);
       });
 
-      // 操作按钮（编辑/删除）事件委托
+      // 操作按钮（编辑/删除/翻页）事件委托
       listEl.addEventListener("click", (e) => {
+        // 翻页
+        const pageBtn = e.target.closest("[data-page]");
+        if (pageBtn) {
+          if (pageBtn.disabled) return;
+          currentPage = Number(pageBtn.dataset.page);
+          loadItems();
+          return;
+        }
         // 编辑
         const editBtn = e.target.closest("[data-edit]");
         if (editBtn) {

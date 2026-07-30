@@ -1,5 +1,7 @@
-"""物品 CRUD，按当前用户隔离；支持按关键词/状态/分类/位置筛选。"""
-from fastapi import APIRouter, Depends, HTTPException, status
+"""物品 CRUD，按当前用户隔离；支持按关键词/状态/分类/位置筛选 + 分页。"""
+from math import ceil
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -7,17 +9,19 @@ from app.deps import get_current_user
 from app.models.item import Item
 from app.models.status import ItemStatus
 from app.models.user import User
-from app.schemas.item import ItemCreate, ItemOut, ItemUpdate
+from app.schemas.item import ItemCreate, ItemOut, ItemUpdate, PaginatedItems
 
 router = APIRouter(prefix="/api/items", tags=["items"])
 
 
-@router.get("", response_model=list[ItemOut])
+@router.get("", response_model=PaginatedItems)
 def list_items(
     keyword: str | None = None,
     status_filter: ItemStatus | None = None,
     category_id: int | None = None,
     location_id: int | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -30,7 +34,20 @@ def list_items(
         q = q.filter(Item.category_id == category_id)
     if location_id is not None:
         q = q.filter(Item.location_id == location_id)
-    return q.order_by(Item.created_at.desc()).all()
+    total = q.count()
+    items = (
+        q.order_by(Item.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return PaginatedItems(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=ceil(total / page_size) if total else 1,
+    )
 
 
 @router.post("", response_model=ItemOut, status_code=status.HTTP_201_CREATED)

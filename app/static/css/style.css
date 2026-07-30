@@ -369,3 +369,34 @@ table.list button {
   opacity: 0.5;
   pointer-events: none;
 }
+
+/* ========== 分页 ========== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+.page-btn {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.page-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.page-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.page-ellipsis {
+  color: var(--muted);
+  padding: 0 2px;
+}
