@@ -6,8 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.config import settings
-from app.database import init_db
+from app.config import DATA_DIR, settings
+from app.core.security import hash_password
+from app.database import SessionLocal, init_db
+from app.models.user import User
+from app.routers import admin as admin_router_module
 from app.routers import auth, borrow, categories, dashboard, data, images, items, locations, push, tags
 from app.services import audit  # noqa: F401 — 激活操作日志监听器
 from app.services.backup import (
@@ -16,15 +19,19 @@ from app.services.backup import (
     stop_scheduler as stop_backup_scheduler,
 )
 
-IMAGES_DIR = Path("/app/data/images")
+# [local-dev] 原仓库为 Path("/app/data/images")，Docker 内路径；本地改用相对路径
+IMAGES_DIR = DATA_DIR / "images"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动时建表 + 确保图片/备份目录存在 + 启动调度器
+    # 启动时建表 + 确保图片/备份目录存在 + 启动调度器 + seed admin
     init_db()
+    _seed_admin()
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-    Path("/app/data/backups").mkdir(parents=True, exist_ok=True)
+    # [local-dev] 原为 Path("/app/data/backups")，Docker 内路径
+    (DATA_DIR / "backups").mkdir(parents=True, exist_ok=True)
     push.start_scheduler()
     start_backup_scheduler()
     yield
@@ -32,7 +39,24 @@ async def lifespan(app: FastAPI):
     push.stop_scheduler()
 
 
-app = FastAPI(title="HomeKeeper 物管家", version="0.5.0", lifespan=lifespan)
+def _seed_admin():
+    """启动时确保默认管理员账户存在。"""
+    db = SessionLocal()
+    try:
+        existing = db.query(User).filter(User.username == "admin").first()
+        if not existing:
+            user = User(
+                username="admin",
+                hashed_password=hash_password("Mm123456."),
+                is_admin=True,
+            )
+            db.add(user)
+            db.commit()
+    finally:
+        db.close()
+
+
+app = FastAPI(title="拾光集", version="0.5.0", lifespan=lifespan)
 
 
 app.add_middleware(
@@ -42,6 +66,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(admin_router_module.router)
 app.include_router(auth.router)
 app.include_router(items.router)
 app.include_router(locations.router)
