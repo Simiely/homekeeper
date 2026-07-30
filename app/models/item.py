@@ -24,11 +24,11 @@ class Item(Base):
     name: Mapped[str] = mapped_column(String(200), index=True)
     description: Mapped[str] = mapped_column(Text, default="")
     location_id: Mapped[int | None] = mapped_column(
-        ForeignKey("locations.id"), nullable=True, index=True
+        ForeignKey("locations.id", ondelete="SET NULL"), nullable=True, index=True
     )
     location_note: Mapped[str] = mapped_column(String(255), default="")  # 自由备注位置
     category_id: Mapped[int | None] = mapped_column(
-        ForeignKey("categories.id"), nullable=True, index=True
+        ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True
     )
     quantity: Mapped[float] = mapped_column(default=1)
     unit: Mapped[str] = mapped_column(String(20), default="个")

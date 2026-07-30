@@ -1,5 +1,6 @@
 // 概览：总数、按状态/分类统计、即将过期（天数可调）
 import { api } from "./api.js";
+import { escapeHtml } from "./utils.js";
 
 export async function renderDashboard() {
   const el = document.getElementById("view-dashboard");
@@ -64,14 +65,4 @@ export async function renderDashboard() {
   } catch (e) {
     el.innerHTML = `<p class="err">${e.message}</p>`;
   }
-}
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[c]));
 }

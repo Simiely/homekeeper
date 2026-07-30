@@ -24,6 +24,22 @@ def list_categories(
     )
 
 
+@router.get("/{cat_id}", response_model=CategoryOut)
+def get_category(
+    cat_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cat = (
+        db.query(Category)
+        .filter(Category.id == cat_id, Category.owner_id == current_user.id)
+        .first()
+    )
+    if not cat:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分类不存在")
+    return cat
+
+
 @router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
 def create_category(
     payload: CategoryCreate,

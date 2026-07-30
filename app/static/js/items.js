@@ -1,5 +1,6 @@
 // 物品视图：筛选 + 列表 + 新增 + 删除（关联位置/分类/状态/保质期）
 import { api } from "./api.js";
+import { buildTreeOptions, escapeHtml } from "./utils.js";
 
 const STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃"];
 
@@ -71,12 +72,30 @@ export async function renderItems() {
       e.preventDefault();
       const fd = new FormData(e.target);
       try {
+        // 提取标签（单值模式下 tags 以逗号分隔）
+        const tagSelect = el.querySelector("[name=tags]");
+        const selectedTags = tagSelect ? Array.from(tagSelect.selectedOptions).map(o => o.value).filter(v => v) : [];
+
+        let itemId;
         if (editingItemId) {
           await api.put(`/items/${editingItemId}`, buildPayload(fd));
-          cancelEdit();
+          itemId = editingItemId;
+          // 清除旧标签（通过 API 获取当前标签）
+          const current = await api.get(`/items/${itemId}`);
+          if (current && current.tags) {
+            for (const t of current.tags) {
+              await api.del(`/items/${itemId}/tags/${t.id}`).catch(() => {});
+            }
+          }
         } else {
-          await api.post("/items", buildPayload(fd));
+          const created = await api.post("/items", buildPayload(fd));
+          itemId = created.id;
         }
+        // 添加新标签
+        for (const tagId of selectedTags) {
+          await api.post(`/items/${itemId}/tags/${tagId}`).catch(() => {});
+        }
+        if (editingItemId) cancelEdit();
         loadItems();
       } catch (err) {
         alert(err.message);
@@ -102,12 +121,12 @@ export async function renderItems() {
       loadItems();
     };
 
-    // 初次加载列表
-    loadItems();
-
     // ---- 编辑模式 ----
     let editingItemId = null;
     let currentPage = 1;
+
+    // 初次加载列表
+    loadItems();
 
     function startEdit(item) {
       editingItemId = item.id;
@@ -229,8 +248,8 @@ export async function renderItems() {
           (it) => {
             const img = imgMap[it.id];
             const imgCell = img
-              ? `<div class="thumb-wrap" data-img="/api/images/${img.filename}" title="点击放大">
-                   <img src="/api/images/${img.filename}" alt="" loading="lazy" />
+              ? `<div class="thumb-wrap" data-img="/api/images/${img.item_id}/${img.filename}" title="点击放大">
+                   <img src="/api/images/${img.item_id}/${img.filename}" alt="" loading="lazy" />
                  </div>`
               : `<button class="upload-btn" data-upload-item="${it.id}" title="上传图片">+</button>`;
             return `
@@ -333,33 +352,6 @@ export async function renderItems() {
   }
 }
 
-// ---- 位置树辅助（用于缩进下拉） ----
-
-function buildLocTree(locations) {
-  const lookup = {};
-  locations.forEach((l) => (lookup[l.id] = { ...l, children: [] }));
-  const roots = [];
-  locations.forEach((l) => {
-    if (l.parent_id === null) roots.push(lookup[l.id]);
-    else if (lookup[l.parent_id]) lookup[l.parent_id].children.push(lookup[l.id]);
-  });
-  return roots;
-}
-
-function buildTreeOptions(locations, placeholder) {
-  const tree = buildLocTree(locations);
-  let html = placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : "";
-  const walk = (nodes, depth) => {
-    for (const node of nodes) {
-      const prefix = depth > 0 ? "　".repeat(depth) + "├── " : "";
-      html += `<option value="${node.id}">${prefix}${escapeHtml(node.name)}</option>`;
-      if (node.children.length) walk(node.children, depth + 1);
-    }
-  };
-  walk(tree, 0);
-  return html;
-}
-
 function buildPayload(fd) {
   const p = {
     name: fd.get("name"),
@@ -376,14 +368,4 @@ function buildPayload(fd) {
   if (lid) p.location_id = Number(lid);
   if (cid) p.category_id = Number(cid);
   return p;
-}
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[c]));
 }

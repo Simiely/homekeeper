@@ -165,6 +165,7 @@ def _check_all_users():
         logger.warning("VAPID 未初始化，跳过推送扫描")
         return
 
+    db = None
     try:
         db = SessionLocal()
         users = db.query(User).all()
@@ -207,10 +208,11 @@ def _check_all_users():
             )
             for sub in subs:
                 _send_push(v, sub, payload, db)
-
-        db.close()
     except Exception:
         logger.exception("推送扫描异常")
+    finally:
+        if db is not None:
+            db.close()
 
 
 def _send_push(v: Vapid, sub: PushSubscription, payload: str, db: Session):

@@ -1,5 +1,6 @@
 """物品 CRUD，按当前用户隔离；支持按关键词/状态/分类/位置筛选 + 分页。"""
 from math import ceil
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.item import Item
+from app.models.item_image import ItemImage
 from app.models.item_tag import item_tag_assoc
 from app.models.status import ItemStatus
 from app.models.tag import Tag
@@ -58,7 +60,7 @@ def list_items(
         total=total,
         page=page,
         page_size=page_size,
-        total_pages=ceil(total / page_size) if total else 1,
+        total_pages=ceil(total / page_size) if total else 0,
     )
 
 
@@ -125,6 +127,12 @@ def delete_item(
     )
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
+    # 清理磁盘图片文件
+    img_dir = Path("/app/data/images") / str(item.id)
+    if img_dir.exists():
+        for f in img_dir.iterdir():
+            f.unlink()
+        img_dir.rmdir()
     db.delete(item)
     db.commit()
 

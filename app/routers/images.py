@@ -135,17 +135,13 @@ def list_images(
 
 # ---- 服务图片文件（无认证，供 <img> 直接引用） ----
 
-@router.get("/api/images/{filename}")
-def serve_image(filename: str):
+@router.get("/api/images/{item_id}/{filename}")
+def serve_image(item_id: int, filename: str):
     if not filename.endswith(".webp"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="无效文件名")
-    # 遍历子目录查找（文件名 UUID 唯一）
-    for subdir in IMAGES_DIR.iterdir():
-        if not subdir.is_dir():
-            continue
-        file_path = subdir / filename
-        if file_path.exists():
-            return FileResponse(file_path, media_type="image/webp")
+    file_path = _image_path(item_id, filename)
+    if file_path.exists():
+        return FileResponse(file_path, media_type="image/webp")
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片不存在")
 
 

@@ -12,9 +12,6 @@ from app.routers import auth, categories, dashboard, images, items, locations, p
 
 IMAGES_DIR = Path("/app/data/images")
 
-# 注意：静态目录 app/static 必须存在，否则启动失败（见 Dockerfile / 部署指南）
-app = FastAPI(title="HomeKeeper 物管家", version="0.1.0")
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,7 +29,6 @@ app = FastAPI(title="HomeKeeper 物管家", version="0.5.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

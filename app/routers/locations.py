@@ -60,6 +60,22 @@ def list_location_tree(
     return roots
 
 
+@router.get("/{loc_id}", response_model=LocationOut)
+def get_location(
+    loc_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    loc = (
+        db.query(Location)
+        .filter(Location.id == loc_id, Location.owner_id == current_user.id)
+        .first()
+    )
+    if not loc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="位置不存在")
+    return loc
+
+
 @router.post("", response_model=LocationOut, status_code=status.HTTP_201_CREATED)
 def create_location(
     payload: LocationCreate,

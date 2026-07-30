@@ -1,5 +1,6 @@
 // 位置视图：可视化层级树 + 新增 + 删除
 import { api } from "./api.js";
+import { buildLocTree, escapeHtml } from "./utils.js";
 
 export async function renderLocations() {
   const el = document.getElementById("view-locations");
@@ -8,7 +9,7 @@ export async function renderLocations() {
     const locs = await api.get("/locations");
 
     // 构建内存树
-    const tree = buildTree(locs);
+    const tree = buildLocTree(locs);
 
     // 生成缩进选项（供新增表单的父级选择器用）
     const indentOpts = buildOptions(tree);
@@ -53,20 +54,6 @@ export async function renderLocations() {
   }
 }
 
-// ---- 树构建 ----
-
-function buildTree(locations) {
-  const lookup = {};
-  locations.forEach((l) => (lookup[l.id] = { ...l, children: [] }));
-  const roots = [];
-  locations.forEach((l) => {
-    if (l.parent_id === null) roots.push(lookup[l.id]);
-    else if (lookup[l.parent_id])
-      lookup[l.parent_id].children.push(lookup[l.id]);
-  });
-  return roots;
-}
-
 // ---- 递归渲染 HTML ----
 
 function renderTreeHtml(nodes) {
@@ -103,10 +90,4 @@ function buildOptions(nodes, depth = 0, excludeId = null) {
     }
   }
   return html;
-}
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-  );
 }

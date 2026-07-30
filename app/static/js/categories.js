@@ -1,5 +1,8 @@
-// 分类视图：列表 + 新增（带颜色） + 删除
+// 分类视图：列表 + 新增 + 编辑 + 删除（带颜色）
 import { api } from "./api.js";
+import { escapeHtml } from "./utils.js";
+
+let editId = null;
 
 export async function renderCategories() {
   const el = document.getElementById("view-categories");
@@ -10,20 +13,21 @@ export async function renderCategories() {
       .map(
         (c) => `
       <tr>
-        <td><span class="dot" style="background:${escapeHtml(
-          c.color
-        )}"></span> ${escapeHtml(c.name)}</td>
+        <td><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${escapeHtml(c.color)};vertical-align:middle"></span> ${escapeHtml(c.name)}</td>
         <td>${escapeHtml(c.color)}</td>
-        <td><button data-del="${c.id}">删</button></td>
+        <td style="white-space:nowrap">
+          <button data-edit="${c.id}" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">编</button>
+          <button data-del="${c.id}" style="background:transparent;border:1px solid var(--border);color:var(--danger);padding:4px 8px;border-radius:6px;font-size:12px">删</button>
+        </td>
       </tr>`
       )
       .join("");
 
     el.innerHTML = `
-      <h2>分类 / 标签</h2>
+      <h2>分类</h2>
       <form id="cat-form" class="card">
         <input name="name" placeholder="分类名称" required />
-        <input name="color" type="color" value="#fb7299" title="颜色" />
+        <input name="color" type="color" value="#fb7299" title="颜色" style="width:48px;padding:4px;flex:0" />
         <button type="submit">添加</button>
       </form>
       <table class="list">
@@ -32,15 +36,39 @@ export async function renderCategories() {
       </table>
     `;
 
-    el.querySelector("#cat-form").onsubmit = async (e) => {
+    const form = el.querySelector("#cat-form");
+    form.onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
-      await api.post("/categories", {
-        name: fd.get("name"),
-        color: fd.get("color"),
-      });
+      const payload = { name: fd.get("name"), color: fd.get("color") };
+      if (editId) {
+        await api.put(`/categories/${editId}`, payload);
+        cancelEdit(form);
+      } else {
+        await api.post("/categories", payload);
+      }
       renderCategories();
     };
+
+    el.querySelector("[data-edit]")?.closest("tbody")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-edit]");
+      if (!btn) return;
+      const cat = cats.find((c) => c.id === Number(btn.dataset.edit));
+      if (!cat) return;
+      editId = cat.id;
+      form.querySelector("[name=name]").value = cat.name;
+      form.querySelector("[name=color]").value = cat.color;
+      form.querySelector("button[type=submit]").textContent = "保存";
+      if (!form.querySelector("#cat-cancel")) {
+        const cancel = document.createElement("button");
+        cancel.id = "cat-cancel";
+        cancel.type = "button";
+        cancel.textContent = "取消";
+        cancel.className = "ghost";
+        cancel.onclick = () => { cancelEdit(form); renderCategories(); };
+        form.querySelector("button[type=submit]").after(cancel);
+      }
+    });
 
     el.querySelectorAll("button[data-del]").forEach((b) => {
       b.onclick = async () => {
@@ -54,12 +82,10 @@ export async function renderCategories() {
   }
 }
 
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[c]));
+function cancelEdit(form) {
+  editId = null;
+  form.reset();
+  form.querySelector("button[type=submit]").textContent = "添加";
+  const c = form.querySelector("#cat-cancel");
+  if (c) c.remove();
 }

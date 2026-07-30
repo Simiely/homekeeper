@@ -103,8 +103,8 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 }
 
-// 在页面加载后执行
-initPush();
+// 在页面加载后执行（仅已登录时初始化推送）
+if (getToken()) initPush();
 
 // ========== 导航调度 ==========
 const views = {

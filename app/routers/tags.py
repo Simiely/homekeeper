@@ -24,6 +24,22 @@ def list_tags(
     )
 
 
+@router.get("/{tag_id}", response_model=TagOut)
+def get_tag(
+    tag_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tag = (
+        db.query(Tag)
+        .filter(Tag.id == tag_id, Tag.owner_id == current_user.id)
+        .first()
+    )
+    if not tag:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="标签不存在")
+    return tag
+
+
 @router.post("", response_model=TagOut, status_code=status.HTTP_201_CREATED)
 def create_tag(
     payload: TagCreate,
