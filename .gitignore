@@ -14,3 +14,6 @@ data/
 
 # 编辑器 / 系统
 .DS_Store
+
+# 浏览器自动化调试截图（运行时产物，勿提交）
+browser_debug/shots/

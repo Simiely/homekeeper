@@ -12,6 +12,8 @@
   --border: #2a2f3a;
   --danger: #ff6b6b;
   --topbar-bg: rgba(23, 26, 33, 0.85);
+  /* 主色调按钮上的文字色：深色模式用深棕（对比粉色背景更清晰） */
+  --btn-on-accent: #462828;
 
   /* 玻璃拟态（深色变体） */
   --glass-bg: rgba(18, 22, 30, 0.55);
@@ -39,6 +41,8 @@
   --border: #e7dfd0;
   --danger: #e74c3c;
   --topbar-bg: rgba(255, 255, 255, 0.85);
+  /* 主色调按钮上的文字色：浅色模式保持白字 */
+  --btn-on-accent: #ffffff;
 
   /* 玻璃拟态（浅色变体） */
   --glass-bg: rgba(255, 255, 255, 0.15);
@@ -218,7 +222,7 @@ h3 {
 }
 .card button {
   background: var(--accent);
-  color: #fff;
+  color: var(--btn-on-accent);
   border: none;
   padding: 8px 18px;
   border-radius: 8px;
@@ -520,7 +524,7 @@ table.list button {
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%);
   border: none;
   border-radius: 12px;
-  color: #fff;
+  color: var(--btn-on-accent);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -679,7 +683,38 @@ table.list button {
   color: #fff;
 }
 
-/* ========== 位置：方块卡片拖拽树（SortableJS） ========== */
+/* ========== 位置：方块卡片拖拽树（自研 Pointer 拖拽） ========== */
+/* 工具栏：标题 + 编辑模式开关 */
+.loc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.loc-toolbar h2 {
+  margin: 0;
+}
+.loc-edit-btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.loc-edit-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.loc-edit-btn.active {
+  background: var(--accent);
+  color: var(--btn-on-accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
 .loc-list {
   list-style: none;
   margin: 10px 0;
@@ -693,7 +728,7 @@ table.list button {
 .loc-card {
   list-style: none;
   margin: 4px 0;
-  transition: margin 1s ease;
+  transition: margin 0.2s ease; /* 拖拽间距弹开/收起动画时长 */
 }
 body.loc-dragging .loc-card {
   margin: 14px 0;
@@ -706,14 +741,26 @@ body.loc-dragging .loc-card {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 14px;
-  cursor: grab;
+  cursor: pointer; /* 默认：点击 = 改名 */
   transition: border-color 0.15s ease, background 0.15s ease;
-}
-.loc-head:active {
-  cursor: grabbing;
 }
 .loc-head:hover {
   border-color: var(--accent);
+}
+/* 编辑模式：整卡可拖，鼠标抓取手势 + 高亮提示 */
+body.loc-edit-mode .loc-head {
+  cursor: grab;
+}
+body.loc-edit-mode .loc-head:active {
+  cursor: grabbing;
+}
+body.loc-edit-mode .loc-head:hover {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+body.loc-edit-mode .loc-handle {
+  color: var(--accent);
+  font-weight: 700;
 }
 .loc-handle {
   cursor: grab;
@@ -753,6 +800,56 @@ body.loc-dragging .loc-card {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
+  margin-left: auto; /* 按钮固定对齐到卡片（头部）最右端，不随文字长短漂移 */
+}
+/* 展开箭头：点击卡片头部展开/收起物品列表 */
+.loc-toggle {
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.loc-toggle:hover {
+  color: var(--accent);
+  background: var(--panel-2);
+}
+.loc-card.expanded .loc-toggle {
+  transform: rotate(90deg);
+}
+/* 位置卡片下的物品列表（默认隐藏，点击头部展开） */
+.loc-items {
+  list-style: none;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0 28px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.loc-items li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.loc-item-name {
+  color: var(--text);
+}
+.loc-item-qty {
+  color: var(--muted);
+  margin-left: auto;
+}
+.loc-item-status {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 1px 8px;
 }
 .loc-add {
   background: transparent;
@@ -766,7 +863,7 @@ body.loc-dragging .loc-card {
 }
 .loc-add:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--btn-on-accent);
   border-color: var(--accent);
 }
 .loc-del {
@@ -781,6 +878,11 @@ body.loc-dragging .loc-card {
 .loc-del:hover {
   color: var(--danger);
   border-color: var(--danger);
+}
+/* 拖拽进行中：禁止文本被鼠标选中（Windows 浏览器原生选中蓝色效果） */
+body.loc-dragging {
+  user-select: none;
+  -webkit-user-select: none;
 }
 .loc-children {
   list-style: none;
@@ -820,13 +922,51 @@ body.loc-dragging .loc-head:hover {
   opacity: 0.45;
   box-shadow: none;
 }
-/* 拖拽插入占位框：预示卡片将插入的位置。
-   注意：不加动画/过渡——占位每次移动都会重插 DOM，动画会反复重播导致"一卡一卡"；
-   顺滑感由卡片 margin 过渡承担。 */
-.loc-insert-ph {
+/* 拖拽缝隙选择区域：鼠标上下位置确定"两个条目之间"的缝隙，区域内左右分：
+   左半 = 与上方条目同级，右半 = 成为上方条目的子级。
+   fixed 绝对定位（不插 DOM、不改变布局），pointer-events:none —— 不参与
+   elementFromPoint 命中（避免误锁父卡片导致目标递归跳变）；高亮与松手判定
+   由 JS 用坐标 + rect 完成。 */
+.loc-gap-zone {
+  display: flex;
+  gap: 8px;
+  box-sizing: border-box;
+}
+.gap-opt {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  background: rgba(251, 114, 153, 0.05);
+  color: var(--muted);
+  font-size: 12px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* JS 坐标判定的高亮选项 */
+.gap-opt.active {
+  border-color: var(--accent);
+  background: rgba(251, 114, 153, 0.16);
+  color: var(--accent);
+  font-weight: 600;
+}
+/* 禁用的选项（如"家"的同级）：灰显不可选 */
+.gap-opt.disabled {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--muted);
+  opacity: 0.45;
+}
+/* 落位占位：目标位置的占位 li（高度由 JS 设为卡片高度，无撑开动画，直接预留空间）。
+   margin 必须与卡片常态一致（4px）——滑入目标取占位 top，放置后卡片 top 才能对齐
+   （若用 14px 会差 10px，落位时跳变）。 */
+.loc-insert-holder {
   list-style: none;
-  height: 46px;
-  margin: 14px 0; /* 与拖拽态卡片间距一致 */
+  height: 0;
+  margin: 4px 0; /* 与卡片常态 margin 一致，保证滑入对齐 */
   border: 2px dashed var(--accent);
   border-radius: 10px;
   background: rgba(251, 114, 153, 0.10);
