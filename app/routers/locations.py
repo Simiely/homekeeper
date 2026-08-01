@@ -1,5 +1,6 @@
 """位置 CRUD（层级树）。删除父级时，子位置自动提升一级。"""
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -9,6 +10,7 @@ from app.models.user import User
 from app.schemas.location import (
     LocationCreate,
     LocationOut,
+    LocationReorderItem,
     LocationTreeNode,
     LocationUpdate,
 )
@@ -24,9 +26,77 @@ def list_locations(
     return (
         db.query(Location)
         .filter(Location.owner_id == current_user.id)
-        .order_by(Location.id)
+        .order_by(Location.parent_id, Location.sort_order, Location.id)
         .all()
     )
+
+
+@router.put("/reorder")
+def reorder_locations(
+    payload: list[LocationReorderItem],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """拖拽排序后批量保存：仅更新 parent_id 与同级 sort_order（扁平结构，避免全量递归）。
+
+    - 归属校验：所有 id 必须属于当前用户
+    - 父位置校验：parent_id 必须存在且属于当前用户
+    - 环检测：禁止把节点移动到自己的后代下（会形成循环引用）
+    """
+    if not payload:
+        return {"ok": True, "updated": 0}
+
+    ids = list({item.id for item in payload})
+    owned = {
+        loc.id: loc
+        for loc in db.query(Location)
+        .filter(Location.owner_id == current_user.id, Location.id.in_(ids))
+        .all()
+    }
+    if len(owned) != len(ids):
+        raise HTTPException(status_code=400, detail="包含无效或不属于当前用户的位置")
+
+    parent_ids = {item.parent_id for item in payload if item.parent_id is not None}
+    if parent_ids:
+        valid_parents = set(
+            row[0]
+            for row in db.query(Location.id)
+            .filter(Location.owner_id == current_user.id, Location.id.in_(parent_ids))
+            .all()
+        )
+        missing = parent_ids - valid_parents
+        if missing:
+            raise HTTPException(status_code=400, detail=f"父位置不存在: {sorted(missing)}")
+
+    # 环检测：基于"数据库现有关系 + 本次新结构"合并追溯。
+    # 链路可能经过不在 payload 中的节点（API 不能假设客户端传全量树），
+    # 因此必须用当前用户的全部位置构建完整 parent 映射。
+    all_parents = {
+        loc.id: loc.parent_id
+        for loc in db.query(Location).filter(Location.owner_id == current_user.id).all()
+    }
+    for item in payload:
+        all_parents[item.id] = item.parent_id  # 本次变更优先
+    for item in payload:
+        cur = item.parent_id
+        seen: set[int] = set()
+        while cur is not None:
+            if cur == item.id:
+                raise HTTPException(
+                    status_code=400, detail="不能将位置移动到自己的子级下（会形成循环）"
+                )
+            if cur in seen:
+                break
+            seen.add(cur)
+            cur = all_parents.get(cur)
+
+    # 批量更新（幂等：重复拖拽同一结构无副作用）
+    for item in payload:
+        loc = owned[item.id]
+        loc.parent_id = item.parent_id
+        loc.sort_order = item.sort_order
+    db.commit()
+    return {"ok": True, "updated": len(payload)}
 
 
 @router.get("/tree", response_model=list[LocationTreeNode])
@@ -82,7 +152,20 @@ def create_location(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    loc = Location(owner_id=current_user.id, **payload.model_dump())
+    # 新位置排到同级末尾（sort_order = 同级最大值 + 1）
+    max_order = (
+        db.query(func.max(Location.sort_order))
+        .filter(
+            Location.owner_id == current_user.id,
+            Location.parent_id == payload.parent_id,
+        )
+        .scalar()
+    )
+    loc = Location(
+        owner_id=current_user.id,
+        sort_order=(max_order or 0) + 1,
+        **payload.model_dump(),
+    )
     db.add(loc)
     db.commit()
     db.refresh(loc)

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import DATA_DIR, settings
 from app.database import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, get_current_user_flex
 from app.models.item import Item
 from app.models.item_image import ItemImage
 from app.models.item_tag import item_tag_assoc
@@ -21,29 +21,6 @@ from app.schemas.item import BatchAction, ItemCreate, ItemOut, ItemUpdate, Pagin
 from app.models.item_log import ItemLog
 
 router = APIRouter(prefix="/api/items", tags=["items"])
-
-
-def _log_item(item: Item, action: str, summary: str, db: Session):
-    """写入操作日志。"""
-    db.add(ItemLog(item_id=item.id, user_id=item.owner_id, action=action, summary=summary))
-
-
-def _item_changes(item: Item, payload: ItemUpdate, old: dict) -> str:
-    """比较旧值和 payload，返回变更摘要。"""
-    parts = []
-    for key, new_val in payload.model_dump(exclude_unset=True).items():
-        old_val = old.get(key)
-        if old_val != new_val:
-            parts.append(f"{key}: {_v(old_val)} → {_v(new_val)}")
-    return "；".join(parts) if parts else "无变更"
-
-
-def _v(v):
-    if v is None:
-        return "空"
-    if hasattr(v, "isoformat"):
-        return v.isoformat()
-    return str(v)
 
 
 @router.get("", response_model=PaginatedItems)
@@ -104,8 +81,6 @@ def create_item(
     db.add(item)
     db.commit()
     db.refresh(item)
-    _log_item(item, "create", f"创建物品「{item.name}」", db)
-    db.commit()
     return item
 
 
@@ -139,15 +114,10 @@ def update_item(
     )
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
-    # 记录变更前状态
-    old = {key: getattr(item, key) for key in payload.model_dump(exclude_unset=True).keys()}
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, key, value)
-    changes = _item_changes(item, payload, old)
     db.commit()
     db.refresh(item)
-    _log_item(item, "update", f"更新物品「{item.name}」: {changes}", db)
-    db.commit()
     return item
 
 
@@ -164,7 +134,6 @@ def delete_item(
     )
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
-    _log_item(item, "delete", f"删除物品「{item.name}」", db)
     # 清理磁盘图片文件
     # [local-dev] 原仓库为 Path("/app/data/images")，Docker 内路径
     img_dir = DATA_DIR / "images" / str(item.id)
@@ -224,9 +193,9 @@ def unarchive_item(
 def get_item_qrcode(
     item_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_flex),
 ):
-    """生成物品的二维码图片（PNG）。"""
+    """生成物品的二维码图片（PNG）。支持 header 或 ?token= query（供 <img> 引用）。"""
     item = (
         db.query(Item)
         .filter(Item.id == item_id, Item.owner_id == current_user.id)

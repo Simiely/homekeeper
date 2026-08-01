@@ -58,44 +58,40 @@ def _row_for_item(item: Item, loc_map: dict, cat_map: dict, tag_map: dict) -> li
     ]
 
 
+def _items_csv(uid: int, db: Session) -> str:
+    """生成当前用户的物品 CSV 内容（export_items 与 export_all 共用）。"""
+    items = db.query(Item).filter(Item.owner_id == uid).order_by(Item.name).all()
+    locs = {l.id: l.name for l in db.query(Location).filter(Location.owner_id == uid).all()}
+    cats = {c.id: c.name for c in db.query(Category).filter(Category.owner_id == uid).all()}
+    tag_names = {t.id: t.name for t in db.query(Tag).filter(Tag.owner_id == uid).all()}
+    item_tags: dict[int, list[str]] = {}
+    if items:
+        rows = db.execute(
+            item_tag_assoc.select().where(
+                item_tag_assoc.c.item_id.in_([it.id for it in items])
+            )
+        ).fetchall()
+        for item_id, tag_id in rows:
+            item_tags.setdefault(item_id, []).append(tag_names.get(tag_id, ""))
+    tag_strs = {k: "、".join(v) for k, v in item_tags.items()}
+
+    s = io.StringIO()
+    w = csv.writer(s)
+    w.writerow(CSV_HEADERS)
+    for it in items:
+        w.writerow(_row_for_item(it, locs, cats, tag_strs))
+    return s.getvalue()
+
+
 @router.get("/api/export/items")
 def export_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """导出当前用户的物品为 CSV。"""
-    uid = current_user.id
-    items = db.query(Item).filter(Item.owner_id == uid).order_by(Item.name).all()
-
-    # 构建名称映射
-    locs = {l.id: l.name for l in db.query(Location).filter(Location.owner_id == uid).all()}
-    cats = {c.id: c.name for c in db.query(Category).filter(Category.owner_id == uid).all()}
-    tags = db.query(Tag).filter(Tag.owner_id == uid).all()
-    tag_names = {t.id: t.name for t in tags}
-
-    # 物品 → 标签名（逗号分隔）
-    item_tags = {}
-    rows = db.execute(
-        item_tag_assoc.select().where(
-            item_tag_assoc.c.item_id.in_([it.id for it in items])
-        )
-    ).fetchall() if items else []
-    for item_id, tag_id in rows:
-        if item_id not in item_tags:
-            item_tags[item_id] = []
-        item_tags[item_id].append(tag_names.get(tag_id, ""))
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(CSV_HEADERS)
-    for item in items:
-        writer.writerow(
-            _row_for_item(item, locs, cats, {k: "、".join(v) for k, v in item_tags.items()})
-        )
-
-    output.seek(0)
+    csv_content = _items_csv(current_user.id, db)
     return StreamingResponse(
-        iter([output.getvalue()]),
+        iter([csv_content]),
         media_type="text/csv; charset=utf-8-sig",
         headers={
             "Content-Disposition": "attachment; filename=homekeeper_items.csv",
@@ -116,28 +112,8 @@ def export_all(
     buf = io.BytesIO()
 
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        # 物品
-        items = db.query(Item).filter(Item.owner_id == uid).order_by(Item.name).all()
-        locs = {l.id: l.name for l in db.query(Location).filter(Location.owner_id == uid).all()}
-        cats = {c.id: c.name for c in db.query(Category).filter(Category.owner_id == uid).all()}
-        tag_names = {t.id: t.name for t in db.query(Tag).filter(Tag.owner_id == uid).all()}
-        item_tags = {}
-        if items:
-            rows = db.execute(
-                item_tag_assoc.select().where(
-                    item_tag_assoc.c.item_id.in_([it.id for it in items])
-                )
-            ).fetchall()
-            for item_id, tag_id in rows:
-                item_tags.setdefault(item_id, []).append(tag_names.get(tag_id, ""))
-        tag_strs = {k: "、".join(v) for k, v in item_tags.items()}
-
-        s = io.StringIO()
-        w = csv.writer(s)
-        w.writerow(CSV_HEADERS)
-        for it in items:
-            w.writerow(_row_for_item(it, locs, cats, tag_strs))
-        zf.writestr("items.csv", s.getvalue().encode("utf-8-sig"))
+        # 物品（复用 _items_csv）
+        zf.writestr("items.csv", _items_csv(uid, db).encode("utf-8-sig"))
 
         # 位置
         s = io.StringIO()
@@ -220,66 +196,68 @@ def import_items(
 
     for i, row in enumerate(reader, start=2):
         try:
-            name = row.get("name", "").strip()
-            if not name:
-                errors.append(f"第 {i} 行: 名称为空，跳过")
-                continue
+            # SAVEPOINT：单行失败只回滚本行，不影响其他行与最终 commit
+            with db.begin_nested():
+                name = row.get("name", "").strip()
+                if not name:
+                    errors.append(f"第 {i} 行: 名称为空，跳过")
+                    continue
 
-            # 解析位置
-            loc_name = row.get("location", "").strip()
-            location_id = loc_map.get(loc_name) if loc_name else None
+                # 解析位置
+                loc_name = row.get("location", "").strip()
+                location_id = loc_map.get(loc_name) if loc_name else None
 
-            # 解析分类
-            cat_name = row.get("category", "").strip()
-            category_id = cat_map.get(cat_name) if cat_name else None
+                # 解析分类
+                cat_name = row.get("category", "").strip()
+                category_id = cat_map.get(cat_name) if cat_name else None
 
-            # 解析数量
-            qty_str = row.get("quantity", "1").strip()
-            quantity = float(qty_str) if qty_str else 1
+                # 解析数量
+                qty_str = row.get("quantity", "1").strip()
+                quantity = float(qty_str) if qty_str else 1
 
-            # 解析日期
-            expiry = None
-            purchase = None
-            expiry_str = row.get("expiry_date", "").strip()
-            purchase_str = row.get("purchase_date", "").strip()
-            if expiry_str:
-                try:
-                    expiry = date.fromisoformat(expiry_str)
-                except ValueError:
-                    pass
-            if purchase_str:
-                try:
-                    purchase = date.fromisoformat(purchase_str)
-                except ValueError:
-                    pass
+                # 解析日期
+                expiry = None
+                purchase = None
+                expiry_str = row.get("expiry_date", "").strip()
+                purchase_str = row.get("purchase_date", "").strip()
+                if expiry_str:
+                    try:
+                        expiry = date.fromisoformat(expiry_str)
+                    except ValueError:
+                        pass
+                if purchase_str:
+                    try:
+                        purchase = date.fromisoformat(purchase_str)
+                    except ValueError:
+                        pass
 
-            item = Item(
-                owner_id=uid,
-                name=name,
-                description=row.get("description", "").strip(),
-                quantity=quantity,
-                unit=row.get("unit", "个").strip() or "个",
-                status=row.get("status", "在库").strip() or "在库",
-                expiry_date=expiry,
-                purchase_date=purchase,
-                location_id=location_id,
-                location_note=row.get("location_note", "").strip() or "",
-                category_id=category_id,
-            )
-            db.add(item)
-            db.flush()
+                item = Item(
+                    owner_id=uid,
+                    name=name,
+                    description=row.get("description", "").strip(),
+                    quantity=quantity,
+                    unit=row.get("unit", "个").strip() or "个",
+                    status=row.get("status", "在库").strip() or "在库",
+                    expiry_date=expiry,
+                    purchase_date=purchase,
+                    location_id=location_id,
+                    location_note=row.get("location_note", "").strip() or "",
+                    category_id=category_id,
+                )
+                db.add(item)
+                db.flush()
 
-            # 处理标签
-            tags_str = row.get("tags", "").strip()
-            if tags_str:
-                for tag_name in tags_str.replace("、", ",").split(","):
-                    tag_name = tag_name.strip()
-                    tag_id = tag_map.get(tag_name)
-                    if tag_id:
-                        # 使用 raw SQL 插入关联表
-                        db.execute(
-                            item_tag_assoc.insert().values(item_id=item.id, tag_id=tag_id)
-                        )
+                # 处理标签
+                tags_str = row.get("tags", "").strip()
+                if tags_str:
+                    for tag_name in tags_str.replace("、", ",").split(","):
+                        tag_name = tag_name.strip()
+                        tag_id = tag_map.get(tag_name)
+                        if tag_id:
+                            # 使用 raw SQL 插入关联表
+                            db.execute(
+                                item_tag_assoc.insert().values(item_id=item.id, tag_id=tag_id)
+                            )
 
             imported += 1
         except Exception as e:

@@ -1,15 +1,8 @@
 """物品 CRUD 与多用户隔离测试。"""
 
 
-def _login(client, username):
-    client.post("/api/auth/register", json={"username": username, "password": "pw"})
-    return client.post(
-        "/api/auth/login", data={"username": username, "password": "pw"}
-    ).json()["access_token"]
-
-
-def test_item_crud(client):
-    token = _login(client, "tester")
+def test_item_crud(client, create_user):
+    token = create_user("tester")
     h = {"Authorization": f"Bearer {token}"}
 
     # 建位置（层级 + 备注）
@@ -52,19 +45,19 @@ def test_item_crud(client):
     assert res["total"] == 0
 
 
-def test_item_isolation(client):
-    ta = _login(client, "userA")
+def test_item_isolation(client, create_user):
+    ta = create_user("userA")
     client.post(
         "/api/items", json={"name": "A的物品"}, headers={"Authorization": f"Bearer {ta}"}
     )
 
-    tb = _login(client, "userB")
+    tb = create_user("userB")
     lb = client.get("/api/items", headers={"Authorization": f"Bearer {tb}"}).json()
     assert len(lb["items"]) == 0
 
 
-def test_item_filter(client):
-    token = _login(client, "filteruser")
+def test_item_filter(client, create_user):
+    token = create_user("filteruser")
     h = {"Authorization": f"Bearer {token}"}
     loc = client.post("/api/locations", json={"name": "客厅"}, headers=h).json()
     cat = client.post("/api/categories", json={"name": "工具"}, headers=h).json()

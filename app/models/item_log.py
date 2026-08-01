@@ -11,8 +11,9 @@ class ItemLog(Base):
     __tablename__ = "item_logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    item_id: Mapped[int] = mapped_column(
-        ForeignKey("items.id", ondelete="CASCADE"), index=True
+    # SET NULL：物品删除后保留操作日志（删除动作由 audit 事件在删除前写入）
+    item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("items.id", ondelete="SET NULL"), nullable=True, index=True
     )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True

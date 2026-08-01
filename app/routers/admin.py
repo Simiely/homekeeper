@@ -5,6 +5,10 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from app.database import get_db
 from app.deps import get_admin_user
+from app.models.category import Category
+from app.models.item import Item
+from app.models.location import Location
+from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.user import UserCreate, UserOut
 
@@ -43,11 +47,18 @@ def delete_user(
     admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
-    """管理员删除用户（不能删除自己）。"""
+    """管理员删除用户（不能删除自己）。
+
+    用户名下资源（物品/分类/位置/标签）转交给执行删除的管理员，避免外键约束报错且数据不丢失；
+    推送订阅随用户级联删除，操作日志保留（user_id 置空）。
+    """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
     if user.id == admin.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不能删除自己")
+    # 转交资源给当前管理员
+    for model in (Item, Category, Location, Tag):
+        db.query(model).filter(model.owner_id == user.id).update({model.owner_id: admin.id})
     db.delete(user)
     db.commit()

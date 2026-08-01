@@ -1,18 +1,23 @@
 // 物品视图：筛选 + 列表 + 新增 + 删除（关联位置/分类/状态/保质期）
-import { api } from "./api.js";
-import { buildTreeOptions, escapeHtml } from "./utils.js";
+import { api, imgUrl } from "./api.js";
+import { showBorrowDialog, showLogDialog } from "./item-dialogs.js";
+import { buildTreeOptions, escapeHtml, viewError, viewLoading } from "./utils.js";
 
-const STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃"];
+// 状态字典：由后端 /api/meta 提供（单一数据源），此处为离线兜底值
+let STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃"];
 
 export async function renderItems() {
   const el = document.getElementById("view-items");
-  el.innerHTML = "<h2>物品</h2><div class='loading'>加载中…</div>";
+  el.innerHTML = viewLoading("物品");
   try {
-    const [locations, categories, tags] = await Promise.all([
+    const [locations, categories, tags, meta] = await Promise.all([
       api.get("/locations"),
       api.get("/categories"),
       api.get("/tags"),
+      api.get("/meta"),
     ]);
+    // 用后端字典覆盖状态选项（新增状态只需改后端 models/status.py）
+    if (meta?.statuses?.length) STATUS_OPTIONS = meta.statuses;
 
     const statusOpts = ['<option value="">全部状态</option>']
       .concat(STATUS_OPTIONS.map((s) => `<option value="${s}">${s}</option>`))
@@ -131,12 +136,13 @@ export async function renderItems() {
       loadItems();
     };
 
-    // 导出 CSV
-    el.querySelector("#export-csv").onclick = () => {
-      const token = localStorage.getItem("hk_token");
-      if (!token) return;
-      // 在新窗口下载，避免阻塞
-      window.open(`/api/export/items?t=${Date.now()}`, "_blank");
+    // 导出 CSV（fetch+blob 带鉴权，window.open 会因无 Bearer 头而 401）
+    el.querySelector("#export-csv").onclick = async () => {
+      try {
+        await api.download("/export/items");
+      } catch (e) {
+        alert("导出失败：" + e.message);
+      }
     };
 
     // 导入 CSV
@@ -254,7 +260,7 @@ export async function renderItems() {
       try {
         data = await api.get("/items?" + qs);
       } catch (e) {
-        listEl.innerHTML = `<p class="err">${e.message}</p>`;
+        listEl.innerHTML = viewError(e.message);
         return;
       }
       const items = data.items;
@@ -293,8 +299,8 @@ export async function renderItems() {
           (it) => {
             const img = imgMap[it.id];
             const imgCell = img
-              ? `<div class="thumb-wrap" data-img="/api/images/${img.item_id}/${img.filename}" title="点击放大">
-                   <img src="/api/images/${img.item_id}/${img.filename}" alt="" loading="lazy" />
+              ? `<div class="thumb-wrap" data-img="${imgUrl(`/api/images/${img.item_id}/${img.filename}`)}" title="点击放大">
+                   <img src="${imgUrl(`/api/images/${img.item_id}/${img.filename}`)}" alt="" loading="lazy" />
                  </div>`
               : `<button class="upload-btn" data-upload-item="${it.id}" title="上传图片">+</button>`;
             return `
@@ -412,7 +418,7 @@ export async function renderItems() {
         const borrowBtn = e.target.closest("[data-borrow]");
         if (borrowBtn) {
           const itemId = borrowBtn.dataset.borrow;
-          showBorrowDialog(itemId);
+          showBorrowDialog(itemId, loadItems);
           return;
         }
         // 二维码
@@ -422,7 +428,7 @@ export async function renderItems() {
           const overlay = document.createElement("div");
           overlay.className = "img-overlay";
           overlay.innerHTML = `<div style="background:var(--panel);padding:24px;border-radius:16px;text-align:center;cursor:default">
-            <img src="/api/items/${itemId}/qrcode" style="width:200px;height:200px;border-radius:8px" />
+            <img src="${imgUrl(`/api/items/${itemId}/qrcode`)}" style="width:200px;height:200px;border-radius:8px" />
             <p style="margin:8px 0 0;color:var(--text);font-size:14px">扫码查看物品</p>
             <p style="margin:4px 0 0;color:var(--muted);font-size:12px">点击任意位置关闭</p>
           </div>`;
@@ -514,72 +520,8 @@ export async function renderItems() {
       };
     }
   } catch (e) {
-    el.innerHTML = `<p class="err">${e.message}</p>`;
+    el.innerHTML = viewError(e.message);
   }
-}
-
-async function showLogDialog(itemId) {
-  const overlay = document.createElement("div");
-  overlay.className = "img-overlay";
-  overlay.style.cursor = "default";
-  try {
-    const logs = await api.get(`/items/${itemId}/logs`);
-    overlay.innerHTML = `<div style="background:var(--panel);padding:24px;border-radius:16px;min-width:480px;max-height:70vh;overflow-y:auto;cursor:default" onclick="event.stopPropagation()">
-      <h3 style="margin:0 0 12px">操作日志</h3>
-      ${logs.length ? logs.map(l => `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-        <span class="tag-chip" style="background:${l.action === 'create' ? '#4CAF50' : l.action === 'delete' ? '#ff6b6b' : '#FB7299'}20;color:${l.action === 'create' ? '#4CAF50' : l.action === 'delete' ? '#ff6b6b' : '#FB7299'};border-color:transparent;font-size:11px">${l.action === 'create' ? '创建' : l.action === 'delete' ? '删除' : '修改'}</span>
-        <span style="color:var(--muted);margin-left:8px">${l.created_at.slice(0,19).replace('T',' ')}</span>
-        <div style="margin-top:4px;color:var(--text)">${escapeHtml(l.summary)}</div>
-      </div>`).join("") : '<p class="muted">暂无操作记录</p>'}
-      <button onclick="this.closest('.img-overlay').remove()" class="ghost" style="margin-top:12px;width:100%">关闭</button>
-    </div>`;
-  } catch (e) {
-    overlay.innerHTML = `<p style="color:var(--danger);padding:24px">${e.message}</p>`;
-  }
-  overlay.onclick = () => overlay.remove();
-  document.body.appendChild(overlay);
-}
-
-async function showBorrowDialog(itemId) {
-  const overlay = document.createElement("div");
-  overlay.className = "img-overlay";
-  overlay.style.cursor = "default";
-  try {
-    const borrows = await api.get(`/items/${itemId}/borrows`);
-    const active = borrows.filter(b => !b.return_date);
-    const history = borrows.filter(b => b.return_date);
-    overlay.innerHTML = `<div style="background:var(--panel);padding:24px;border-radius:16px;min-width:480px;max-height:80vh;overflow-y:auto;cursor:default" onclick="event.stopPropagation()">
-      <h3 style="margin:0 0 12px">借用记录</h3>
-      ${active.length ? `<p class="muted">当前未归还：</p>${active.map(b => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
-        <span style="flex:1">借给 <b>${escapeHtml(b.borrower_name)}</b>（${b.borrow_date}）</span>
-        <span class="tag-chip" style="background:#ff6b6b20;color:#ff6b6b;border-color:#ff6b6b60">未归还</span>
-      </div>`).join("")}` : '<p class="muted">当前无未归还记录</p>'}
-      <hr style="border-color:var(--border);margin:12px 0" />
-      <form id="borrow-form" style="display:flex;gap:8px;flex-wrap:wrap">
-        <input name="borrower_name" placeholder="借用人姓名" required style="flex:1;min-width:120px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:8px" />
-        <input name="borrow_date" type="date" value="${new Date().toISOString().slice(0,10)}" style="background:var(--panel-2);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:8px" />
-        <input name="expected_return_date" type="date" placeholder="预计归还" style="background:var(--panel-2);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:8px" />
-        <button type="submit" style="background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px">借出</button>
-      </form>
-      ${history.length ? `<hr style="border-color:var(--border);margin:12px 0" /><p class="muted">归还记录：</p>${history.map(b => `<div style="padding:4px 0;font-size:13px;color:var(--muted)">借给 ${escapeHtml(b.borrower_name)}（${b.borrow_date}）→ 已归还 ${b.return_date}</div>`).join("")}` : ""}
-      <button onclick="this.closest('.img-overlay').remove()" class="ghost" style="margin-top:12px;width:100%">关闭</button>
-    </div>`;
-    overlay.querySelector("#borrow-form").onsubmit = async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      await api.post(`/items/${itemId}/borrows`, {
-        borrower_name: fd.get("borrower_name"),
-        borrow_date: fd.get("borrow_date"),
-        expected_return_date: fd.get("expected_return_date") || null,
-      });
-      overlay.remove();
-      loadItems();
-    };
-  } catch (e) {
-    overlay.innerHTML = `<p style="color:var(--danger);padding:24px">${e.message}</p>`;
-  }
-  overlay.onclick = () => overlay.remove();
-  document.body.appendChild(overlay);
 }
 
 function buildPayload(fd) {
@@ -589,7 +531,7 @@ function buildPayload(fd) {
     location_note: fd.get("location_note") || "",
     quantity: Number(fd.get("quantity")) || 1,
     unit: fd.get("unit") || "个",
-    status: fd.get("status") || "在库",
+    status: fd.get("status") || STATUS_OPTIONS[0] || "在库",
     expiry_date: fd.get("expiry_date") || null,
     purchase_date: fd.get("purchase_date") || null,
     serial_number: fd.get("serial_number") || null,

@@ -1,9 +1,10 @@
 // 备份管理：列表 + 手动备份 + 恢复
 import { api, getToken } from "./api.js";
+import { viewError, viewLoading } from "./utils.js";
 
 export async function renderBackups() {
   const el = document.getElementById("view-backups");
-  el.innerHTML = "<h2>备份</h2><div class='loading'>加载中…</div>";
+  el.innerHTML = viewLoading("备份");
   try {
     const data = await api.get("/backups");
     const backups = data.backups;
@@ -65,7 +66,7 @@ export async function renderBackups() {
       }).catch((err) => alert("恢复失败：" + err.message));
     });
   } catch (e) {
-    el.innerHTML = `<p class="err">${e.message}</p>`;
+    el.innerHTML = viewError(e.message);
   }
 }
 

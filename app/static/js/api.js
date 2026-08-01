@@ -10,6 +10,13 @@ export function logout() {
   location.href = "/login.html";
 }
 
+// 生成带 token 的资源 URL：<img>/<a> 无法携带 header，只能走 ?token= query
+export function imgUrl(path) {
+  const token = getToken();
+  const sep = path.includes("?") ? "&" : "?";
+  return token ? `${path}${sep}token=${encodeURIComponent(token)}` : path;
+}
+
 async function request(method, path, body, isFormData) {
   const headers = {};
   const token = getToken();
@@ -41,4 +48,30 @@ export const api = {
   put: (p, b) => request("PUT", p, b),
   del: (p) => request("DELETE", p),
   upload: (p, fd) => request("POST", p, fd, true),
+  // 带鉴权下载（window.open 无法携带 Bearer header，必须走 fetch+blob）
+  download: async (p) => {
+    const token = getToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(`${API}${p}`, { headers });
+    if (res.status === 401) {
+      logout();
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `下载失败 (${res.status})`);
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") || "";
+    const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    const filename = m ? decodeURIComponent(m[1]) : `export_${Date.now()}.csv`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

@@ -6,13 +6,13 @@ from pydantic import BaseModel, ConfigDict
 
 class BorrowCreate(BaseModel):
     borrower_name: str
-    borrow_date: str  # YYYY-MM-DD
-    expected_return_date: str | None = None
+    borrow_date: date  # YYYY-MM-DD（Pydantic 自动校验，非法输入返回 422）
+    expected_return_date: date | None = None
     notes: str = ""
 
 
 class BorrowUpdate(BaseModel):
-    return_date: str | None = None
+    return_date: date | None = None
     notes: str | None = None
 
 

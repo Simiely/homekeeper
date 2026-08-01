@@ -1,6 +1,4 @@
 """借用记录：借出/归还/列表。"""
-from datetime import date
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -44,8 +42,8 @@ def create_borrow(
     record = BorrowRecord(
         item_id=item_id,
         borrower_name=payload.borrower_name,
-        borrow_date=date.fromisoformat(payload.borrow_date),
-        expected_return_date=date.fromisoformat(payload.expected_return_date) if payload.expected_return_date else None,
+        borrow_date=payload.borrow_date,
+        expected_return_date=payload.expected_return_date,
         notes=payload.notes,
     )
     db.add(record)
@@ -69,7 +67,7 @@ def update_borrow(
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="借用记录不存在")
     if payload.return_date is not None:
-        record.return_date = date.fromisoformat(payload.return_date)
+        record.return_date = payload.return_date
     if payload.notes is not None:
         record.notes = payload.notes
     db.commit()

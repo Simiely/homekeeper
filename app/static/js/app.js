@@ -164,28 +164,59 @@ function urlBase64ToUint8Array(base64String) {
 if (getToken()) initPush();
 
 // ========== 导航调度 ==========
+// 视图注册表：每个功能一个独立渲染模块（模块化约定：新增视图只需在此注册）
 const views = {
   dashboard: renderDashboard,
   items: renderItems,
   locations: renderLocations,
   categories: renderCategories,
   tags: renderTags,
-  backups: renderBackups,
   admin: renderAdmin,
+  backups: renderBackups,
 };
 
-document.querySelectorAll("nav button[data-view]").forEach((btn) => {
-  btn.onclick = () => {
-    document
-      .querySelectorAll("nav button")
-      .forEach((b) => b.classList.remove("active"));
+// 设置下拉（管理板块入口：父项本身无视图，仅负责展开/收起子菜单）
+const settingsToggle = document.getElementById("settings-toggle");
+const settingsMenu = document.getElementById("settings-menu");
+const settingsDropdown = settingsToggle ? settingsToggle.closest(".nav-dropdown") : null;
+
+function closeSettingsMenu() {
+  settingsMenu?.classList.add("hidden");
+  settingsDropdown?.classList.remove("open");
+}
+
+settingsToggle?.addEventListener("click", (e) => {
+  e.stopPropagation(); // 避免触发 document 级收起
+  const willOpen = settingsMenu.classList.toggle("hidden");
+  settingsDropdown.classList.toggle("open", !willOpen);
+});
+
+// 点击页面其他区域时收起下拉
+document.addEventListener("click", closeSettingsMenu);
+
+// 统一视图切换：处理高亮（含父项联动）与视图容器显示
+function showView(name, btn) {
+  document.querySelectorAll("nav button[data-view]").forEach((b) => b.classList.remove("active"));
+  settingsToggle?.classList.remove("active"); // 父项高亮由子项联动决定，切换前先清除
+  closeSettingsMenu();
+  if (btn) {
     btn.classList.add("active");
-    document
-      .querySelectorAll(".view")
-      .forEach((v) => v.classList.add("hidden"));
-    const name = btn.dataset.view;
-    document.getElementById(`view-${name}`).classList.remove("hidden");
-    views[name]();
+    // 子项激活时父项同步高亮（data-parent 指向父按钮 id）
+    const parentId = btn.dataset.parent;
+    if (parentId) {
+      const parentBtn = document.getElementById(parentId);
+      parentBtn?.classList.add("active");
+    }
+  }
+  document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
+  document.getElementById(`view-${name}`).classList.remove("hidden");
+  views[name]();
+}
+
+document.querySelectorAll("nav button[data-view]").forEach((btn) => {
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    showView(btn.dataset.view, btn);
   };
 });
 

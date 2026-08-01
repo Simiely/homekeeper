@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import DATA_DIR
 from app.database import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, get_current_user_flex
 from app.models.item import Item
 from app.models.item_image import ItemImage
 from app.models.user import User
@@ -135,12 +135,25 @@ def list_images(
     )
 
 
-# ---- 服务图片文件（无认证，供 <img> 直接引用） ----
+# ---- 服务图片文件（需登录：header 或 ?token= query，供 <img> 直接引用） ----
 
 @router.get("/api/images/{item_id}/{filename}")
-def serve_image(item_id: int, filename: str):
+def serve_image(
+    item_id: int,
+    filename: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_flex),
+):
     if not filename.endswith(".webp"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="无效文件名")
+    # 归属校验：图片必须属于当前用户的物品（防跨用户越权读取）
+    item = (
+        db.query(Item)
+        .filter(Item.id == item_id, Item.owner_id == current_user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片不存在")
     file_path = _image_path(item_id, filename)
     if file_path.exists():
         return FileResponse(file_path, media_type="image/webp")

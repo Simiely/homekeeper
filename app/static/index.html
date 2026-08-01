@@ -24,8 +24,14 @@
         <button data-view="locations">位置</button>
         <button data-view="categories">分类</button>
         <button data-view="tags">标签</button>
-        <button data-view="backups">备份</button>
-        <button data-view="admin" class="admin-only" style="display:none">管理</button>
+        <span class="nav-sep" aria-hidden="true"></span>
+        <div class="nav-dropdown admin-only" style="display:none">
+          <button id="settings-toggle" class="nav-parent" type="button">设置 <span class="nav-caret" aria-hidden="true">▾</span></button>
+          <div id="settings-menu" class="nav-menu hidden">
+            <button data-view="admin" data-parent="settings" type="button">用户管理</button>
+            <button data-view="backups" data-parent="settings" type="button">数据备份</button>
+          </div>
+        </div>
       </nav>
       <button id="theme-toggle" class="ghost theme-btn" title="切换主题" type="button">🌙</button>
       <button id="notif-btn" class="ghost" title="推送通知状态" style="font-size:18px">🔕</button>

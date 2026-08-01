@@ -6,8 +6,8 @@ __pycache__/
 .pytest_cache/
 *.pyc
 
-# 本地数据（SQLite 由 docker 卷持久化）
-data/*.db
+# 本地数据（数据库 / 备份 / 图片 / VAPID 密钥等运行时数据，勿提交）
+data/
 
 # 密钥配置（勿提交）
 .env

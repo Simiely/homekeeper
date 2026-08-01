@@ -1,10 +1,10 @@
 // 概览：总数、按状态/分类统计、即将过期（天数可调）
 import { api } from "./api.js";
-import { escapeHtml } from "./utils.js";
+import { escapeHtml, viewError, viewLoading } from "./utils.js";
 
 export async function renderDashboard() {
   const el = document.getElementById("view-dashboard");
-  el.innerHTML = "<h2>概览</h2><div class='loading'>加载中…</div>";
+  el.innerHTML = viewLoading("概览");
   try {
     const [summary, items, categories] = await Promise.all([
       api.get("/dashboard/summary"),
@@ -14,7 +14,7 @@ export async function renderDashboard() {
 
     const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
     const byCat = {};
-    for (const it of items) {
+    for (const it of items.items) {
       const key = it.category_id ? catMap[it.category_id] || "未分类" : "未分类";
       byCat[key] = (byCat[key] || 0) + 1;
     }
@@ -50,9 +50,10 @@ export async function renderDashboard() {
       const days = el.querySelector("#exp-days").value || 30;
       const listEl = el.querySelector("#exp-list");
       try {
-        const expiring = await api.get(
+        const data = await api.get(
           `/dashboard/expiring?days=${encodeURIComponent(days)}`
         );
+        const expiring = data.expiring || [];
         listEl.innerHTML = expiring.length
           ? expiring
               .map((i) => `<li>${escapeHtml(i.name)} · 到期 ${i.expiry_date}</li>`)
@@ -69,6 +70,6 @@ export async function renderDashboard() {
     });
     loadExpiring();
   } catch (e) {
-    el.innerHTML = `<p class="err">${e.message}</p>`;
+    el.innerHTML = viewError(e.message);
   }
 }

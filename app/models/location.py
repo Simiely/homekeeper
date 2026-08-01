@@ -16,6 +16,8 @@ class Location(Base):
         ForeignKey("locations.id"), nullable=True, index=True
     )
     note: Mapped[str] = mapped_column(String(255), default="")
+    # 同级排序（拖拽排序持久化）
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

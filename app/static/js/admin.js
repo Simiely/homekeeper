@@ -1,5 +1,6 @@
 // 管理页：用户管理
 import { api } from "./api.js";
+import { viewError } from "./utils.js";
 
 export async function renderAdmin() {
   const view = document.getElementById("view-admin");
@@ -81,6 +82,6 @@ async function loadUsers() {
       };
     });
   } catch (err) {
-    container.innerHTML = `<p class="err">${err.message}</p>`;
+    container.innerHTML = viewError(err.message);
   }
 }

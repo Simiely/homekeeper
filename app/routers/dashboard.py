@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -18,23 +19,49 @@ def summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    items = db.query(Item).filter(Item.owner_id == current_user.id).all()
-    by_status: dict[str, int] = {}
-    total_value = 0.0
-    by_category_value: dict[str, float] = {}
-    cat_map = {c.id: c.name for c in db.query(Category).filter(Category.owner_id == current_user.id).all()}
-    for it in items:
-        key = it.status.value if hasattr(it.status, "value") else str(it.status)
-        by_status[key] = by_status.get(key, 0) + 1
-        if it.price:
-            total_value += it.price * it.quantity
-            cat_name = cat_map.get(it.category_id, "未分类")
-            by_category_value[cat_name] = by_category_value.get(cat_name, 0) + it.price * it.quantity
+    """统计概览：全部改为 SQL 聚合，避免全量加载物品内存计算。"""
+    uid = current_user.id
+
+    total = db.query(func.count(Item.id)).filter(Item.owner_id == uid).scalar() or 0
+    by_status = {
+        (s.value if hasattr(s, "value") else str(s)): c
+        for s, c in db.query(Item.status, func.count(Item.id))
+        .filter(Item.owner_id == uid)
+        .group_by(Item.status)
+        .all()
+    }
+    # price 为 NULL 时自然不计；price=0 正常计入（原 if it.price 会把 0 排除）
+    total_value = (
+        db.query(func.coalesce(func.sum(Item.price * Item.quantity), 0.0))
+        .filter(Item.owner_id == uid)
+        .scalar()
+        or 0.0
+    )
+    cat_map = {
+        c.id: c.name
+        for c in db.query(Category).filter(Category.owner_id == uid).all()
+    }
+    cat_value_rows = (
+        db.query(
+            func.coalesce(Item.category_id, 0),
+            func.sum(Item.price * Item.quantity),
+        )
+        .filter(Item.owner_id == uid)
+        .group_by(func.coalesce(Item.category_id, 0))
+        .all()
+    )
+    by_category_value = {
+        (cat_map.get(cid, "未分类") if cid else "未分类"): float(v)
+        for cid, v in cat_value_rows
+    }
     return {
-        "total": len(items),
+        "total": total,
         "by_status": by_status,
         "total_value": round(total_value, 2),
-        "by_category_value": {k: round(v, 2) for k, v in sorted(by_category_value.items(), key=lambda x: -x[1])},
+        "by_category_value": {
+            k: round(v, 2)
+            for k, v in sorted(by_category_value.items(), key=lambda x: -x[1])
+        },
     }
 
 

@@ -5,6 +5,15 @@ export function escapeHtml(s) {
   );
 }
 
+// 统一视图模板：加载中 / 错误（所有视图模块共用，保证交互一致）
+export function viewLoading(title = "") {
+  return title ? `<h2>${escapeHtml(title)}</h2><div class="loading">加载中…</div>` : `<div class="loading">加载中…</div>`;
+}
+
+export function viewError(msg) {
+  return `<p class="err">${escapeHtml(msg)}</p>`;
+}
+
 export function buildLocTree(locations) {
   const lookup = {};
   locations.forEach((l) => (lookup[l.id] = { ...l, children: [] }));

@@ -107,6 +107,63 @@ body {
   color: var(--text);
 }
 
+/* 导航分组分隔线（实用板块 | 管理板块） */
+.nav-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* 设置下拉（管理板块入口） */
+.nav-dropdown {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.nav-dropdown .nav-parent {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.nav-caret {
+  font-size: 11px;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+.nav-dropdown.open .nav-caret {
+  transform: rotate(180deg);
+}
+.nav-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 150px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 20;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.nav-menu.hidden {
+  display: none;
+}
+.nav-menu button {
+  text-align: left;
+  white-space: nowrap;
+  padding: 8px 12px;
+}
+.nav-menu button.active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
 button {
   cursor: pointer;
 }
@@ -622,6 +679,160 @@ table.list button {
   color: #fff;
 }
 
+/* ========== 位置：方块卡片拖拽树（SortableJS） ========== */
+.loc-list {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+/* 卡片间距用 margin（支持过渡动画）：平时 4px，拖拽时拉宽到 14px，放置更从容；
+   1s 让位动画：鼠标切入新判定区域时，元素平滑移动腾出位置 */
+.loc-card {
+  list-style: none;
+  margin: 4px 0;
+  transition: margin 1s ease;
+}
+body.loc-dragging .loc-card {
+  margin: 14px 0;
+}
+.loc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: grab;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.loc-head:active {
+  cursor: grabbing;
+}
+.loc-head:hover {
+  border-color: var(--accent);
+}
+.loc-handle {
+  cursor: grab;
+  color: var(--muted);
+  font-size: 14px;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.loc-handle:hover {
+  color: var(--accent);
+  background: var(--panel-2);
+}
+.loc-handle:active {
+  cursor: grabbing;
+}
+.loc-name {
+  font-weight: 500;
+  color: var(--text);
+}
+.loc-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+.loc-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel-2);
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.loc-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.loc-add {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 2px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.loc-add:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.loc-del {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.loc-del:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.loc-children {
+  list-style: none;
+  margin: 8px 0 0 22px;
+  padding-left: 12px;
+  border-left: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+/* 拖拽视觉跟随层（自绘，跟随鼠标的单条卡片） */
+.loc-drag-visual {
+  opacity: 0.94;
+  transition: transform 0.12s ease;
+}
+.loc-drag-visual .loc-head {
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transform: scale(1.02);
+}
+/* 卡片内联添加子位置表单 */
+.loc-inline-form .card {
+  background: var(--panel-2);
+}
+/* 拖拽反馈（自研 Pointer 拖拽） */
+/* 拖拽进行中：禁用卡片 hover 高亮，只保留被拖对象 + 占位框的变化 */
+body.loc-dragging .loc-head:hover {
+  border-color: var(--border);
+}
+/* 被拖卡片原位置：弱化占位、隐藏子级 */
+.loc-card.dragging .loc-children {
+  display: none;
+}
+.loc-card.dragging .loc-head {
+  border-color: var(--border);
+  opacity: 0.45;
+  box-shadow: none;
+}
+/* 拖拽插入占位框：预示卡片将插入的位置。
+   注意：不加动画/过渡——占位每次移动都会重插 DOM，动画会反复重播导致"一卡一卡"；
+   顺滑感由卡片 margin 过渡承担。 */
+.loc-insert-ph {
+  list-style: none;
+  height: 46px;
+  margin: 14px 0; /* 与拖拽态卡片间距一致 */
+  border: 2px dashed var(--accent);
+  border-radius: 10px;
+  background: rgba(251, 114, 153, 0.10);
+  box-sizing: border-box;
+}
+
 /* ========== 图片缩略图 ========== */
 .thumb-wrap {
   display: inline-flex;
@@ -801,6 +1012,20 @@ tr.archived td {
   .topbar nav button {
     white-space: nowrap;
     flex-shrink: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  /* 移动端：下拉改为横向静态展开，避免被横向滚动容器裁剪 */
+  .nav-menu {
+    position: static;
+    box-shadow: none;
+    min-width: 0;
+    flex-direction: row;
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+  .nav-menu button {
     padding: 8px 10px;
     font-size: 13px;
   }

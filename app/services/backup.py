@@ -1,18 +1,20 @@
-"""自动备份：定时备份 SQLite + 列表/恢复。"""
+"""自动备份业务：定时备份 SQLite + 列表/恢复。
+
+职责边界：本模块只做业务与调度，不定义任何 API 路由（见 routers/backup.py）；
+调度器统一启停见 services/scheduler.py。
+"""
 import logging
 import shutil
+import sqlite3
 from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import APIRouter, HTTPException
+from fastapi import HTTPException
 
 from app.config import DATA_DIR, settings
 from app.database import engine, init_db
-from app.routers.push import start_scheduler as start_push_scheduler
-from app.routers.push import stop_scheduler as stop_push_scheduler
 
 logger = logging.getLogger("homekeeper.backup")
-router = APIRouter(prefix="/api/backups", tags=["backups"])
 
 # [local-dev] 原仓库为 Path("/app/data/backups") / Path("/app/data/homekeeper.db")，Docker 内路径
 BACKUP_DIR = DATA_DIR / "backups"
@@ -58,58 +60,41 @@ def list_backup_files() -> list[dict]:
 
 
 def restore_backup(filename: str) -> None:
-    """从备份文件恢复数据库。"""
+    """从备份文件恢复数据库。
+
+    注意：调度器（自动备份/推送扫描）的暂停与重启由 routers/backup.py 编排，
+    本函数只负责数据层的安全恢复。
+    """
     backup = BACKUP_DIR / filename
     if not backup.exists() or not backup.name.startswith("homekeeper_"):
         raise HTTPException(status_code=404, detail="备份文件不存在")
 
     logger.warning("正在从 %s 恢复数据库...", filename)
 
-    # 停调度器
-    stop_push_scheduler()
-
-    # 断开所有数据库连接
+    # 断开所有数据库连接，避免占用文件
     engine.dispose()
 
-    # 复制备份覆盖当前数据库
-    shutil.copy2(backup, DB_PATH)
+    # 原子恢复：先写临时文件再替换，避免中途崩溃产生损坏库
+    tmp = DB_PATH.with_suffix(".db.restore_tmp")
+    shutil.copy2(backup, tmp)
+
+    # 完整性校验：确认备份可正常打开
+    try:
+        conn = sqlite3.connect(tmp)
+        row = conn.execute("PRAGMA integrity_check").fetchone()
+        conn.close()
+        if not row or row[0] != "ok":
+            tmp.unlink(missing_ok=True)
+            raise HTTPException(status_code=400, detail="备份文件损坏，恢复已中止")
+    except sqlite3.Error as e:
+        tmp.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"备份文件无法打开：{e}")
+
+    tmp.replace(DB_PATH)
 
     # 重新建表（原表已存在不会覆盖数据）
     init_db()
-
-    # 重启调度器
-    start_push_scheduler()
-
     logger.warning("数据库已从 %s 恢复", filename)
-
-
-# ========== API 端点 ==========
-
-
-@router.get("")
-def list_backups():
-    """获取备份列表。"""
-    return {
-        "backups": list_backup_files(),
-        "backup_dir": str(BACKUP_DIR),
-        "db_path": str(DB_PATH),
-    }
-
-
-@router.post("/trigger")
-def trigger_backup():
-    """手动触发一次备份。"""
-    filename = create_backup()
-    if filename:
-        return {"ok": True, "filename": filename}
-    return {"ok": False, "reason": "数据库为空，跳过备份"}
-
-
-@router.post("/{filename}/restore")
-def restore(filename: str):
-    """从指定的备份文件恢复数据库（危险操作）。"""
-    restore_backup(filename)
-    return {"ok": True, "restored_from": filename}
 
 
 # ========== 调度器 ==========
@@ -118,7 +103,7 @@ scheduler = BackgroundScheduler()
 
 
 def start_scheduler():
-    """在 lifespan 中调用，启动自动备份。"""
+    """注册并启动自动备份任务（由 services/scheduler.py 统一调用）。"""
     if scheduler.get_job("db_backup"):
         return
     interval = max(settings.backup_interval_hours, 1)
@@ -134,7 +119,7 @@ def start_scheduler():
 
 
 def stop_scheduler():
-    """在 lifespan 结束时调用。"""
+    """停止自动备份任务（由 services/scheduler.py 统一调用）。"""
     if scheduler.running:
         scheduler.shutdown(wait=False)
         logger.info("备份调度器已停止")

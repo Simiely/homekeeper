@@ -1,12 +1,12 @@
 // 分类视图：列表 + 新增 + 编辑 + 删除（带颜色）
 import { api } from "./api.js";
-import { escapeHtml } from "./utils.js";
+import { escapeHtml, viewError, viewLoading } from "./utils.js";
 
 let editId = null;
 
 export async function renderCategories() {
   const el = document.getElementById("view-categories");
-  el.innerHTML = "<h2>分类</h2><div class='loading'>加载中…</div>";
+  el.innerHTML = viewLoading("分类");
   try {
     const cats = await api.get("/categories");
     const rows = cats
@@ -78,7 +78,7 @@ export async function renderCategories() {
       };
     });
   } catch (e) {
-    el.innerHTML = `<p class="err">${e.message}</p>`;
+    el.innerHTML = viewError(e.message);
   }
 }
 

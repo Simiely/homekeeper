@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     public_url: str = ""
     backup_interval_hours: int = 1
     backup_retention: int = 48
+    # 首次启动自动创建的默认管理员密码（生产环境务必通过环境变量覆盖）
+    default_admin_password: str = "Mm123456."
 
     @property
     def cors_origins_list(self) -> list[str]:

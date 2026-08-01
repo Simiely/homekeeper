@@ -20,10 +20,19 @@ class LocationUpdate(BaseModel):
     note: str | None = None
 
 
+class LocationReorderItem(BaseModel):
+    """拖拽排序的单个节点：仅变更 parent_id 与同级 sort_order。"""
+
+    id: int
+    parent_id: int | None = None
+    sort_order: int = 0
+
+
 class LocationOut(LocationBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    sort_order: int = 0
     owner_id: int
     created_at: datetime
 

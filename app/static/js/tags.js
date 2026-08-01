@@ -1,12 +1,12 @@
 // 标签管理：列表 + 新增 + 编辑 + 删除
 import { api } from "./api.js";
-import { escapeHtml } from "./utils.js";
+import { escapeHtml, viewError, viewLoading } from "./utils.js";
 
 let editTagId = null;
 
 export async function renderTags() {
   const el = document.getElementById("view-tags");
-  el.innerHTML = "<h2>标签</h2><div class='loading'>加载中…</div>";
+  el.innerHTML = viewLoading("标签");
   try {
     const tags = await api.get("/tags");
 
@@ -76,7 +76,7 @@ export async function renderTags() {
       };
     });
   } catch (e) {
-    el.innerHTML = `<p class="err">${e.message}</p>`;
+    el.innerHTML = viewError(e.message);
   }
 }
 
