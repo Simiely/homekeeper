@@ -4,13 +4,51 @@
 
 ---
 
+## [v0.9.3] - 2026-08-02
+
+### 位置页交互改版（⭐ 重点）
+
+#### 新增
+- **改名只在编辑模式进行**：非编辑模式点击项目条 = **展开/收起该位置的物品列表**（原为 ▸ 箭头专属，现整条可点，除右侧 `+`/`✕` 按钮外）
+- **编辑模式双操作**：**单击卡片 = 改名**（按下未拖动即判定为单击）、**拖动 = 调整层级**
+- **提示文字常驻**：进入编辑模式后提示「编辑模式：单击卡片改名，拖动卡片调整层级」一直显示，直到点「✔ 完成」退出；被临时错误提示覆盖后自动恢复
+- **触屏 Pointer 支持**：拖拽事件由 `mousedown/mousemove/mouseup` 改为 `pointerdown/move/up/cancel`（统一鼠标/触摸/触控笔），按下即锁定 `touch-action:none` + 捕获阶段阻止 `touchmove`，手机模拟/真实触屏可正常拖拽
+- 「家」（id=1）可单击改名、但拖动仍被禁止（超阈值直接取消）
+
+#### 修复
+- 位置展开逻辑改用 `.expanded` 类判断（原用内联 `style.display` 判断导致首次点击永远无法展开的历史 bug）
+- 改名表单输入框 + 保存/取消按钮强制一行布局（覆盖 768px 断点 `.card{flex-direction:column}` 的影响）
+
+---
+
+## [refactor] - 2026-08-02（未发版，代码已合入 master）
+
+### 模块化梳理执行（详见 docs/09）
+
+#### 阶段 1：P0 止血
+- **修复 items.js 事件监听器累积**：3 个 `listEl.addEventListener("click")` 原注册在 `loadItems()` 内（被调用 15 次），翻页/筛选后点删除会弹出多个 confirm、点缩略图叠加多层遮罩 → 合并为 1 个顶层事件委托（`data-*` 分派），监听器只注册一次
+- 清理 backups.js：本地重复定义的 `escapeHtml` 改为从 utils.js 导入；移除未使用的 `getToken`
+
+#### 阶段 2：后端 services 层下沉
+- 新增 5 个 service：`item_service` / `location_service` / `dashboard_service` / `image_service` / `data_service`
+- 5 个 fat router 变薄壳（items/locations/dashboard/images/data）：**合计 1839 → 477 行（-74%）**
+- 服务层抛领域异常（`ItemNotFoundError` / `LocationInvalidError` 等），router 捕获转 HTTP 响应，解除服务层对 FastAPI 的依赖
+- 批量删除物品同步清理磁盘图片目录（与单删一致，修复资源泄漏）
+- **修复原有 bug**：仪表盘按分类汇总金额时 `sum()` 可能为 NULL（存在无价格物品）→ `coalesce(..., 0.0)` 兜底
+- 验证：pytest 11 passed + 无头浏览器 8 视图回归 + 位置页交互回归
+
+#### 阶段 3（待执行）
+- app.js 拆分 push.js、items.js 拆分、收编内联小字（见 docs/09）
+
+---
+
 ## [v0.9.2] - 2026-08-01
 
 ### 位置页交互重构（⭐ 重点）
 
 #### 新增
 - **「编辑」模式开关**：位置页右上角新增「✎ 编辑」按钮 → 进入拖拽模式（按钮变「✔ 完成」），再点退出
-  - 默认模式：**点击卡片 = 内联改名**（名称预填，保存调 `PUT /locations/{id}`）
+  - v0.9.2 默认模式：点击卡片 = 内联改名（v0.9.3 起改为仅编辑模式内单击改名）
   - 编辑模式：卡片鼠标变抓取手势、手柄高亮，**按住卡片拖动调整层级**
   - 拖拽目标识别：鼠标【上下】确定缝隙（选择区域实时跟随），区域内【左=与上方条目同级 / 右=成为子级】，松手放置自动保存
   - 「家」（id=1）固定根：不可拖拽、不可删除，仅可添加子项目（"同级"选项灰显禁用）
@@ -25,7 +63,7 @@
 
 #### 前端调试基建（⭐ 重点）
 - **无头浏览器自动化调试**（Edge + CDP，puppeteer-core）：真实打开页面、模拟登录/点击/拖拽、抓取 Console 异常与 4xx、自动截图、读取 DOM 状态
-- 脚本入库：`browser_debug/`（basic_check / drag_test / drag_gap_test / edit_mode_test）
+- 脚本入库：`browser_debug/`（basic_check / drag_test / drag_precise_test / drag_gap_test / edit_mode_test）
 - 文档：`docs/05-开发指南.md` 新增「无头浏览器自动化调试（Edge + CDP）⭐ 重点」章节（技术选型 / 启动 / API 速查 / 踩坑 / 工作流）
 
 #### 修复

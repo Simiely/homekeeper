@@ -7,6 +7,9 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./data/homekeeper.db
       - SECRET_KEY=${SECRET_KEY:-change-me-to-a-long-random-string}
+      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-}
+      - EXPIRY_WARN_DAYS=${EXPIRY_WARN_DAYS:-3}
+      - SCAN_INTERVAL_HOURS=${SCAN_INTERVAL_HOURS:-6}
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=1440
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
