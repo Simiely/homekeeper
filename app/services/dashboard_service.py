@@ -34,7 +34,7 @@ def get_summary(db: Session, user: User) -> dict:
     cat_value_rows = (
         db.query(
             func.coalesce(Item.category_id, 0),
-            func.sum(Item.price * Item.quantity),
+            func.coalesce(func.sum(Item.price * Item.quantity), 0.0),
         )
         .filter(Item.owner_id == uid)
         .group_by(func.coalesce(Item.category_id, 0))
