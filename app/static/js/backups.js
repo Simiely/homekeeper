@@ -1,6 +1,6 @@
 // 备份管理：列表 + 手动备份 + 恢复
-import { api, getToken } from "./api.js";
-import { viewError, viewLoading } from "./utils.js";
+import { api } from "./api.js";
+import { escapeHtml, viewError, viewLoading } from "./utils.js";
 
 export async function renderBackups() {
   const el = document.getElementById("view-backups");
@@ -68,10 +68,4 @@ export async function renderBackups() {
   } catch (e) {
     el.innerHTML = viewError(e.message);
   }
-}
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-  );
 }

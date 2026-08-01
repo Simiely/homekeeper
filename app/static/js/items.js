@@ -8,6 +8,7 @@ let STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃"]
 
 export async function renderItems() {
   const el = document.getElementById("view-items");
+  let items = []; // 当前页物品（loadItems 填充，顶层事件委托读取）
   el.innerHTML = viewLoading("物品");
   try {
     const [locations, categories, tags, meta] = await Promise.all([
@@ -80,6 +81,107 @@ export async function renderItems() {
 
       <div id="item-list"></div>
     `;
+
+    // ===== 事件委托（只注册一次，#item-list 是常驻节点，重渲染只改 innerHTML）=====
+    const listEl = el.querySelector("#item-list");
+    listEl.addEventListener("click", async (e) => {
+      // 上传图片
+      const uploadBtn = e.target.closest("[data-upload-item]");
+      if (uploadBtn) {
+        const itemId = uploadBtn.dataset.uploadItem;
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.addEventListener("change", async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          uploadBtn.classList.add("uploading");
+          uploadBtn.textContent = "…";
+          try {
+            const form = new FormData();
+            form.append("file", file);
+            await api.upload(`/items/${itemId}/images`, form);
+            loadItems();
+          } catch (err) {
+            alert("上传失败: " + err.message);
+            uploadBtn.classList.remove("uploading");
+            uploadBtn.textContent = "+";
+          }
+        });
+        input.click();
+        return;
+      }
+      // 图片点击放大
+      const imgWrap = e.target.closest("[data-img]");
+      if (imgWrap) {
+        const overlay = document.createElement("div");
+        overlay.className = "img-overlay";
+        overlay.innerHTML = `<img src="${imgWrap.dataset.img}" alt="" />`;
+        overlay.onclick = () => overlay.remove();
+        document.body.appendChild(overlay);
+        return;
+      }
+      // 翻页
+      const pageBtn = e.target.closest("[data-page]");
+      if (pageBtn) {
+        if (pageBtn.disabled) return;
+        currentPage = Number(pageBtn.dataset.page);
+        loadItems();
+        return;
+      }
+      // 编辑
+      const editBtn = e.target.closest("[data-edit]");
+      if (editBtn) {
+        const itemId = Number(editBtn.dataset.edit);
+        const item = items.find((it) => it.id === itemId);
+        if (item) startEdit(item);
+        return;
+      }
+      // 日志
+      const logBtn = e.target.closest("[data-log]");
+      if (logBtn) {
+        showLogDialog(logBtn.dataset.log);
+        return;
+      }
+      // 借用记录
+      const borrowBtn = e.target.closest("[data-borrow]");
+      if (borrowBtn) {
+        showBorrowDialog(borrowBtn.dataset.borrow, loadItems);
+        return;
+      }
+      // 二维码
+      const qrBtn = e.target.closest("[data-qr]");
+      if (qrBtn) {
+        const itemId = qrBtn.dataset.qr;
+        const overlay = document.createElement("div");
+        overlay.className = "img-overlay";
+        overlay.innerHTML = `<div style="background:var(--panel);padding:24px;border-radius:16px;text-align:center;cursor:default">
+          <img src="${imgUrl(`/api/items/${itemId}/qrcode`)}" style="width:200px;height:200px;border-radius:8px" />
+          <p style="margin:8px 0 0;color:var(--text);font-size:14px">扫码查看物品</p>
+          <p style="margin:4px 0 0;color:var(--muted);font-size:12px">点击任意位置关闭</p>
+        </div>`;
+        overlay.onclick = () => overlay.remove();
+        document.body.appendChild(overlay);
+        return;
+      }
+      // 归档 / 取消归档
+      const archiveBtn = e.target.closest("[data-archive]");
+      if (archiveBtn) {
+        api.post(`/items/${archiveBtn.dataset.archive}/archive`).then(() => loadItems());
+        return;
+      }
+      const unarchiveBtn = e.target.closest("[data-unarchive]");
+      if (unarchiveBtn) {
+        api.post(`/items/${unarchiveBtn.dataset.unarchive}/unarchive`).then(() => loadItems());
+        return;
+      }
+      // 删除
+      const delBtn = e.target.closest("[data-del]");
+      if (delBtn) {
+        if (!confirm("确认删除？")) return;
+        api.del(`/items/${delBtn.dataset.del}`).then(() => loadItems());
+      }
+    });
 
     // 新增物品
     el.querySelector("#item-form").onsubmit = async (e) => {
@@ -263,7 +365,7 @@ export async function renderItems() {
         listEl.innerHTML = viewError(e.message);
         return;
       }
-      const items = data.items;
+      items = data.items;
       const total = data.total;
       const totalPages = data.total_pages;
 
@@ -349,112 +451,6 @@ export async function renderItems() {
         </div>
         ${renderPagination(data)}
       `;
-
-      // 上传图片（事件委托）
-      listEl.addEventListener("click", async (e) => {
-        const btn = e.target.closest("[data-upload-item]");
-        if (!btn) return;
-        const itemId = btn.dataset.uploadItem;
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
-        input.addEventListener("change", async () => {
-          const file = input.files?.[0];
-          if (!file) return;
-          btn.classList.add("uploading");
-          btn.textContent = "…";
-          try {
-            const form = new FormData();
-            form.append("file", file);
-            await api.upload(`/items/${itemId}/images`, form);
-            loadItems();
-          } catch (err) {
-            alert("上传失败: " + err.message);
-            btn.classList.remove("uploading");
-            btn.textContent = "+";
-          }
-        });
-        input.click();
-      });
-
-      // 图片点击放大（事件委托）
-      listEl.addEventListener("click", (e) => {
-        const wrap = e.target.closest("[data-img]");
-        if (!wrap) return;
-        const src = wrap.dataset.img;
-        const overlay = document.createElement("div");
-        overlay.className = "img-overlay";
-        overlay.innerHTML = `<img src="${src}" alt="" />`;
-        overlay.onclick = () => overlay.remove();
-        document.body.appendChild(overlay);
-      });
-
-      // 操作按钮（编辑/删除/翻页）事件委托
-      listEl.addEventListener("click", (e) => {
-        // 翻页
-        const pageBtn = e.target.closest("[data-page]");
-        if (pageBtn) {
-          if (pageBtn.disabled) return;
-          currentPage = Number(pageBtn.dataset.page);
-          loadItems();
-          return;
-        }
-        // 编辑
-        const editBtn = e.target.closest("[data-edit]");
-        if (editBtn) {
-          const itemId = Number(editBtn.dataset.edit);
-          const item = items.find((it) => it.id === itemId);
-          if (item) startEdit(item);
-          return;
-        }
-        // 日志
-        const logBtn = e.target.closest("[data-log]");
-        if (logBtn) {
-          const itemId = logBtn.dataset.log;
-          showLogDialog(itemId);
-          return;
-        }
-        // 借用记录
-        const borrowBtn = e.target.closest("[data-borrow]");
-        if (borrowBtn) {
-          const itemId = borrowBtn.dataset.borrow;
-          showBorrowDialog(itemId, loadItems);
-          return;
-        }
-        // 二维码
-        const qrBtn = e.target.closest("[data-qr]");
-        if (qrBtn) {
-          const itemId = qrBtn.dataset.qr;
-          const overlay = document.createElement("div");
-          overlay.className = "img-overlay";
-          overlay.innerHTML = `<div style="background:var(--panel);padding:24px;border-radius:16px;text-align:center;cursor:default">
-            <img src="${imgUrl(`/api/items/${itemId}/qrcode`)}" style="width:200px;height:200px;border-radius:8px" />
-            <p style="margin:8px 0 0;color:var(--text);font-size:14px">扫码查看物品</p>
-            <p style="margin:4px 0 0;color:var(--muted);font-size:12px">点击任意位置关闭</p>
-          </div>`;
-          overlay.onclick = () => overlay.remove();
-          document.body.appendChild(overlay);
-          return;
-        }
-        // 归档
-        const archiveBtn = e.target.closest("[data-archive]");
-        if (archiveBtn) {
-          api.post(`/items/${archiveBtn.dataset.archive}/archive`).then(() => loadItems());
-          return;
-        }
-        // 取消归档
-        const unarchiveBtn = e.target.closest("[data-unarchive]");
-        if (unarchiveBtn) {
-          api.post(`/items/${unarchiveBtn.dataset.unarchive}/unarchive`).then(() => loadItems());
-          return;
-        }
-        // 删除
-        const delBtn = e.target.closest("[data-del]");
-        if (delBtn) {
-          if (!confirm("确认删除？")) return;
-          api.del(`/items/${delBtn.dataset.del}`).then(() => loadItems());
-        }
-      });
 
       // 批量操作
       const batchBar = el.querySelector("#batch-bar");
