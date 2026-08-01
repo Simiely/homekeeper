@@ -1,63 +1,30 @@
-"""物品图片：上传 / 服务 / 删除。"""
-import uuid
-from io import BytesIO
-from pathlib import Path
-
+"""物品图片：上传 / 服务 / 删除。业务在 services/image_service.py。"""
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
-from PIL import Image
 from sqlalchemy.orm import Session
 
-from app.config import DATA_DIR
 from app.database import get_db
 from app.deps import get_current_user, get_current_user_flex
-from app.models.item import Item
-from app.models.item_image import ItemImage
 from app.models.user import User
 from app.schemas.item_image import ItemImageOut
+from app.services import image_service
 
 router = APIRouter(tags=["images"])
 
-# [local-dev] 原仓库为 Path("/app/data/images")，Docker 内路径
-IMAGES_DIR = DATA_DIR / "images"
-MAX_DIM = 2000  # 最长边像素上限
-WEBP_QUALITY = 85
 
+def _http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, image_service.ImageProcessError):
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="图片处理失败，请确认上传的是有效图片文件",
+        )
+    if isinstance(exc, image_service.ImageNotFoundError):
+        detail = str(exc)
+        if detail == "无效文件名":
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
 
-# ---- 图片处理 ----
-
-def process_image(file_bytes: bytes) -> tuple[bytes, int, int]:
-    """转为 WebP，超 2000px 等比缩放。返回 (data, width, height)。"""
-    img = Image.open(BytesIO(file_bytes))
-    # 处理 RGBA → RGB（WebP 支持 alpha，保留即可）
-    w, h = img.size
-    longest = max(w, h)
-    if longest > MAX_DIM:
-        ratio = MAX_DIM / longest
-        new_w = int(w * ratio)
-        new_h = int(h * ratio)
-        img = img.resize((new_w, new_h), Image.LANCZOS)
-        w, h = new_w, new_h
-    buf = BytesIO()
-    img.save(buf, format="WEBP", quality=WEBP_QUALITY)
-    return buf.getvalue(), w, h
-
-
-# ---- 文件路径 ----
-
-def _image_path(item_id: int, filename: str) -> Path:
-    """构造图片磁盘路径：data/images/{item_id}/{filename}"""
-    return IMAGES_DIR / str(item_id) / filename
-
-
-def _ensure_dir(item_id: int) -> Path:
-    """确保 item 子目录存在，返回目录路径。"""
-    d = IMAGES_DIR / str(item_id)
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
-# ---- 上传 ----
 
 @router.post(
     "/api/items/{item_id}/images",
@@ -70,49 +37,14 @@ def upload_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # 验证物品所有权
-    item = (
-        db.query(Item)
-        .filter(Item.id == item_id, Item.owner_id == current_user.id)
-        .first()
-    )
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
-
-    # 读取上传内容
     raw = file.file.read()
-    if not raw:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="空文件")
-
-    # 处理图片
     try:
-        webp_data, width, height = process_image(raw)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="图片处理失败，请确认上传的是有效图片文件"
+        return image_service.upload_image(
+            db, current_user, item_id, raw, file.filename
         )
+    except (image_service.ImageNotFoundError, image_service.ImageProcessError) as exc:
+        raise _http_error(exc)
 
-    # 保存到磁盘
-    filename = f"{uuid.uuid4().hex}.webp"
-    out_dir = _ensure_dir(item_id)
-    (out_dir / filename).write_bytes(webp_data)
-
-    # 写入 DB
-    record = ItemImage(
-        item_id=item_id,
-        filename=filename,
-        original_name=file.filename or "",
-        width=width,
-        height=height,
-        file_size=len(webp_data),
-    )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    return record
-
-
-# ---- 列表 ----
 
 @router.get("/api/items/{item_id}/images", response_model=list[ItemImageOut])
 def list_images(
@@ -120,22 +52,11 @@ def list_images(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    item = (
-        db.query(Item)
-        .filter(Item.id == item_id, Item.owner_id == current_user.id)
-        .first()
-    )
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
-    return (
-        db.query(ItemImage)
-        .filter(ItemImage.item_id == item_id)
-        .order_by(ItemImage.created_at)
-        .all()
-    )
+    try:
+        return image_service.list_images(db, current_user, item_id)
+    except image_service.ImageNotFoundError as exc:
+        raise _http_error(exc)
 
-
-# ---- 服务图片文件（需登录：header 或 ?token= query，供 <img> 直接引用） ----
 
 @router.get("/api/images/{item_id}/{filename}")
 def serve_image(
@@ -144,23 +65,13 @@ def serve_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_flex),
 ):
-    if not filename.endswith(".webp"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="无效文件名")
-    # 归属校验：图片必须属于当前用户的物品（防跨用户越权读取）
-    item = (
-        db.query(Item)
-        .filter(Item.id == item_id, Item.owner_id == current_user.id)
-        .first()
-    )
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片不存在")
-    file_path = _image_path(item_id, filename)
-    if file_path.exists():
-        return FileResponse(file_path, media_type="image/webp")
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片不存在")
+    """服务图片文件（需登录：header 或 ?token= query，供 <img> 直接引用）。"""
+    try:
+        file_path = image_service.get_image_file_path(db, current_user, item_id, filename)
+    except image_service.ImageNotFoundError as exc:
+        raise _http_error(exc)
+    return FileResponse(file_path, media_type="image/webp")
 
-
-# ---- 删除 ----
 
 @router.delete(
     "/api/items/{item_id}/images/{image_id}",
@@ -172,25 +83,8 @@ def delete_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    item = (
-        db.query(Item)
-        .filter(Item.id == item_id, Item.owner_id == current_user.id)
-        .first()
-    )
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
-    record = (
-        db.query(ItemImage)
-        .filter(ItemImage.id == image_id, ItemImage.item_id == item_id)
-        .first()
-    )
-    if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片不存在")
-
-    # 删文件
-    p = _image_path(item_id, record.filename)
-    if p.exists():
-        p.unlink()
-
-    db.delete(record)
-    db.commit()
+    try:
+        image_service.delete_image(db, current_user, item_id, image_id)
+    except image_service.ImageNotFoundError as exc:
+        raise _http_error(exc)
+    return None
