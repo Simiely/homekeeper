@@ -11,15 +11,17 @@ sys.path.insert(0, ROOT)
 _tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp.name}"
 
+# 测试专用管理员账号（密码仅用于测试环境，与生产默认密码无关）。
+# DEFAULT_ADMIN_PASSWORD 必须在导入 app 之前设置（config.Settings() 在导入时读取环境变量）。
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "TestAdminPass123!"
+os.environ["DEFAULT_ADMIN_PASSWORD"] = ADMIN_PASSWORD
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.database import Base, engine
 from app.main import app
-
-# 默认管理员账号（lifespan 启动时 seed）
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "Mm123456."
 
 
 @pytest.fixture

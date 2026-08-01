@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     public_url: str = ""
     backup_interval_hours: int = 1
     backup_retention: int = 48
-    # 首次启动自动创建的默认管理员密码（生产环境务必通过环境变量覆盖）
-    default_admin_password: str = "Mm123456."
+    # 首次启动自动创建的默认管理员密码：留空表示不设置，seed 时生成随机密码并打印到日志。
+    # 生产环境务必通过环境变量 DEFAULT_ADMIN_PASSWORD 显式设置强密码（不要留空）。
+    default_admin_password: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:

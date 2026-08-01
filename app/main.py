@@ -1,5 +1,6 @@
 """应用入口：挂载路由、静态目录、CORS、启动时建表。"""
 import logging
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -52,14 +53,27 @@ async def lifespan(app: FastAPI):
 
 
 def _seed_admin():
-    """启动时确保默认管理员账户存在（密码取自配置 DEFAULT_ADMIN_PASSWORD）。"""
+    """启动时确保默认管理员账户存在。
+
+    密码来源：
+    1. 环境变量 DEFAULT_ADMIN_PASSWORD（推荐，部署时显式设置强密码）；
+    2. 未设置则生成随机密码并打印到日志（仅此一次，登录后请立即修改）。
+    """
     db = SessionLocal()
     try:
         existing = db.query(User).filter(User.username == "admin").first()
         if not existing:
+            password = settings.default_admin_password
+            if not password:
+                password = secrets.token_urlsafe(12)
+                logging.getLogger("uvicorn.error").warning(
+                    "未设置 DEFAULT_ADMIN_PASSWORD，已为 admin 生成随机密码：%s "
+                    "（请登录后立即修改，或在 .env 中设置该变量后重建数据库）",
+                    password,
+                )
             user = User(
                 username="admin",
-                hashed_password=hash_password(settings.default_admin_password),
+                hashed_password=hash_password(password),
                 is_admin=True,
             )
             db.add(user)

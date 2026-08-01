@@ -21,6 +21,7 @@ docker run -d --name homekeeper \
   -p 8000:8000 \
   -v $(pwd)/data:/app/data \
   -e SECRET_KEY="改为随机字符串" \
+  -e DEFAULT_ADMIN_PASSWORD="改为强密码" \
   ghcr.io/simiely/homekeeper:latest
 ```
 
@@ -35,7 +36,8 @@ docker run -d --name homekeeper \
    ```bash
    docker compose up -d --build
    ```
-3. **访问**：浏览器打开 `http://<服务器IP>:8000`，使用管理员账号 `admin / Mm123456.` 登录。
+3. **访问**：浏览器打开 `http://<服务器IP>:8000`，使用管理员账号 `admin` 登录。
+   > **首次登录密码**：部署时通过环境变量 `DEFAULT_ADMIN_PASSWORD` 自行设置（见 `.env.example`）；未设置则启动时生成随机密码并打印在日志中，登录后请立即修改。
    > 默认禁止公开注册，管理员登录后在「管理」页创建普通用户。
 
 > 数据落在 `./data/homekeeper.db`（已通过卷挂载持久化，重启不丢）。
@@ -47,7 +49,7 @@ docker run -d --name homekeeper \
 
 | 模块 | 能力 |
 |------|------|
-| 账号 | 管理员创建用户 / 登录（JWT），数据按用户隔离；默认 admin / Mm123456. |
+| 账号 | 管理员创建用户 / 登录（JWT），数据按用户隔离；初始 admin 密码由部署者通过 `DEFAULT_ADMIN_PASSWORD` 设置 |
 | 物品 | 名称、描述、数量、单位、**状态**、**保质期**、购买日期、**图片附件** |
 | 位置 | **可视化层级树**（房间>区域>容器，缩进展示）+ 自由备注文本 |
 | 分类 | 带颜色的标签 / 分类 |
