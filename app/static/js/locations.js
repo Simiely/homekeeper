@@ -56,7 +56,7 @@ export async function renderLocations() {
       document.body.classList.toggle("loc-edit-mode", editMode);
       editBtn.textContent = editMode ? "✔ 完成" : "✎ 编辑";
       editBtn.classList.toggle("active", editMode);
-      if (editMode) showStatus("拖拽模式：按住卡片拖动调整层级，再点「完成」退出", false);
+      if (editMode) showStatus(EDIT_HINT, false, true);
       else showStatus("", false);
     };
 
@@ -68,7 +68,10 @@ export async function renderLocations() {
       ? `<ul class="loc-list">${renderCards(tree, itemsByLoc)}</ul>`
       : '<p class="muted">暂无位置，请添加</p>';
 
-    // 卡片操作（事件委托）：添加子位置 / 删除 / 点击头部改名（非编辑模式）/ ▸ 展开物品
+    // 渲染后若仍在编辑模式，恢复常驻提示（DOM 重建后 #loc-status 是新的）
+    if (editMode && editHintText) showStatus(editHintText, false, true);
+
+    // 卡片操作（事件委托）：添加子位置 / 删除 / 非编辑模式点击展开物品 / ▸ 展开物品
     treeEl.addEventListener("click", async (e) => {
       if (suppressClick) {
         suppressClick = false; // 拖拽后的 click 忽略
@@ -90,28 +93,33 @@ export async function renderLocations() {
       // ▸ 展开/收起该位置下的物品列表（两种模式都可用）
       const toggle = e.target.closest(".loc-toggle");
       if (toggle) {
-        const card = toggle.closest(".loc-card");
-        const itemsEl = card.querySelector(":scope > .loc-items");
-        if (itemsEl) {
-          const willShow = itemsEl.style.display !== "none";
-          itemsEl.style.display = willShow ? "none" : "flex";
-          card.classList.toggle("expanded", !willShow);
-        }
+        toggleItems(toggle.closest(".loc-card"));
         return;
       }
-      // 点击卡片头部（非按钮，非编辑模式）：弹出改名
+      // 非编辑模式：点击项目条任意处（除添加/删除按钮）→ 展开/收起该位置的物品列表
       const head = e.target.closest(".loc-head");
       if (head && !editMode) {
-        e.stopPropagation();
-        showRename(head.closest(".loc-card"));
+        toggleItems(head.closest(".loc-card"));
       }
+      // 编辑模式下：单击卡片头部 = 改名（由 onDragEnd 的"未拖动"分支处理，这里不处理）
     });
 
-    // 自研拖拽：mousedown 委托
-    treeEl.addEventListener("mousedown", onDragStart);
+    // 自研拖拽：pointerdown 委托（统一鼠标/触摸/触控笔）
+    treeEl.addEventListener("pointerdown", onDragStart);
   } catch (e) {
     el.innerHTML = viewError(e.message);
   }
+}
+
+// 展开/收起卡片下的物品列表
+function toggleItems(card) {
+  if (!card) return;
+  const itemsEl = card.querySelector(":scope > .loc-items");
+  if (!itemsEl) return;
+  // 用 .expanded 类判断（CSS 默认 display:none，内联 style 为空串，不能拿来判断）
+  const willShow = !card.classList.contains("expanded");
+  itemsEl.style.display = willShow ? "flex" : "none";
+  card.classList.toggle("expanded", willShow);
 }
 
 // ---- 方块卡片渲染（递归）----
@@ -176,16 +184,19 @@ let suppressClick = false; // 拖拽后抑制误触发的 click（防止拖完�
 let editMode = false; // 编辑模式（拖拽调层级）；默认关闭，点击卡片 = 改名
 
 function onDragStart(e) {
-  if (e.button !== 0) return; // 仅左键
+  // 触屏（pointerType 为 touch/pen）没有 button 语义，仅鼠标限制左键
+  if (e.pointerType === "mouse" && e.button !== 0) return;
   // 仅编辑模式可拖拽调整层级；默认模式点击 = 改名
   if (!editMode) return;
   suppressClick = false; // 新一轮按下重置
   const card = e.target.closest(".loc-card");
   if (!card) return;
-  // 「家」（固定根，id=1）不可拖拽修改层级
-  if (Number(card.dataset.id) === 1) return;
-  // 卡片上的功能按钮不触发拖拽
-  if (e.target.closest(".loc-add, .loc-del, .loc-inline-form")) return;
+  // 卡片上的功能按钮不触发拖拽/单击改名
+  if (e.target.closest(".loc-add, .loc-del, .loc-inline-form, .loc-toggle")) return;
+  // 触屏关键：立即用内联样式锁定 body 的 touch-action，防止触摸被浏览器判为滚动
+  // → pointercancel 中断拖拽（内联样式在触摸序列开始前生效最稳）
+  document.body.style.touchAction = "none";
+  document.body.style.userSelect = "none";
 
   drag = {
     id: Number(card.dataset.id),
@@ -198,8 +209,15 @@ function onDragStart(e) {
     gapTarget: null, // 当前缝隙的上方条目 id
     createdChildren: [], // 本次拖拽中新建的空子级容器（取消时清理）
   };
-  document.addEventListener("mousemove", onDragMove);
-  document.addEventListener("mouseup", onDragEnd);
+  // 触屏防滚动：捕获阶段阻止 touchmove 默认行为（浏览器滚动会触发 pointercancel 中断拖拽）
+  document.addEventListener(
+    "touchmove",
+    (drag.touchGuard = (ev) => ev.preventDefault()),
+    { passive: false, capture: true }
+  );
+  document.addEventListener("pointermove", onDragMove);
+  document.addEventListener("pointerup", onDragEnd);
+  document.addEventListener("pointercancel", onDragEnd);
 }
 
 function onDragMove(e) {
@@ -208,6 +226,11 @@ function onDragMove(e) {
   const dy = e.clientY - drag.startY;
   // 移动 6px 判定为拖拽（避免点击误触发）
   if (!drag.active && Math.hypot(dx, dy) < 6) return;
+  // 「家」（固定根，id=1）不可拖拽修改层级：超阈值直接取消本次拖拽（单击改名仍正常）
+  if (drag.id === 1) {
+    cancelDrag();
+    return;
+  }
   if (!drag.active) {
     suppressClick = true; // 真正拖动了：抑制拖拽结束后的 click
     startDrag();
@@ -332,16 +355,61 @@ function updateGapZone(clientX, clientY) {
   }
 }
 
+// 取消本次拖拽：清理监听与视觉残留（供「家」不可拖时调用；也用于 pointercancel）
+function cancelDrag() {
+  if (!drag) return;
+  document.removeEventListener("pointermove", onDragMove);
+  document.removeEventListener("pointerup", onDragEnd);
+  document.removeEventListener("pointercancel", onDragEnd);
+  if (drag.touchGuard) {
+    document.removeEventListener("touchmove", drag.touchGuard, { capture: true });
+  }
+  resetDragBody();
+  if (rafId != null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+  document.body.classList.remove("loc-dragging");
+  if (drag.visual) drag.visual.remove();
+  if (drag.zone) drag.zone.remove();
+  for (const ul of drag.createdChildren) {
+    if (!ul.isConnected || !ul.querySelector(":scope > .loc-card")) ul.remove();
+  }
+  drag.card.classList.remove("dragging");
+  drag = null;
+}
+
 function onDragEnd(e) {
   if (!drag) return;
-  document.removeEventListener("mousemove", onDragMove);
-  document.removeEventListener("mouseup", onDragEnd);
+  document.removeEventListener("pointermove", onDragMove);
+  document.removeEventListener("pointerup", onDragEnd);
+  document.removeEventListener("pointercancel", onDragEnd);
+  if (drag.touchGuard) {
+    document.removeEventListener("touchmove", drag.touchGuard, { capture: true });
+  }
+  resetDragBody();
   if (rafId != null) {
     cancelAnimationFrame(rafId);
     rafId = null;
   }
   const state = drag;
   drag = null;
+  // pointercancel（触屏被系统打断）没有可靠的 clientX/clientY → 按取消处理
+  if (e.type === "pointercancel" || e.clientX == null || e.clientY == null) {
+    document.body.classList.remove("loc-dragging");
+    if (state.visual) state.visual.remove();
+    if (state.zone) state.zone.remove();
+    for (const ul of state.createdChildren) {
+      if (!ul.isConnected || !ul.querySelector(":scope > .loc-card")) ul.remove();
+    }
+    state.card.classList.remove("dragging");
+    return;
+  }
+  // 编辑模式下「单击」卡片（按下后未拖动超过阈值）＝ 改名
+  if (!state.active) {
+    showRename(state.card);
+    return;
+  }
   // 注意：不在这里移除 body.loc-dragging（保持卡片间距拉开状态）——
   // 若过早移除，滑入动画期间间距会收回，造成"下方整体上提"。
   // 间距在落位动画完成后（animateInsert 末尾）再收回。
@@ -371,6 +439,12 @@ function onDragEnd(e) {
   }
   // 放置成功：先做落位动画（间距拉大 → 跟随层滑入），动画完成后再真正放置保存
   animateInsert(state, target);
+}
+
+// 恢复拖拽期间锁定的 body 样式（触屏 touch-action 锁定 + 文字选中禁止）
+function resetDragBody() {
+  document.body.style.touchAction = "";
+  document.body.style.userSelect = "";
 }
 
 // 落位动画：目标位置先撑开恰好容纳卡片的空隙（间距调整好），跟随层再滑入占位位置，
@@ -508,13 +582,44 @@ function collectFlat() {
   return flat;
 }
 
-function showStatus(msg, isError) {
+// 编辑模式常驻提示文案（编辑模式下一直显示，直到点「完成」退出）
+const EDIT_HINT = "编辑模式：单击卡片改名，拖动卡片调整层级，再点「完成」退出";
+let editHintText = ""; // 当前常驻提示文案（空 = 无常驻提示）
+let editHintTimer = null; // 编辑提示的恢复计时器
+
+function showStatus(msg, isError, keep) {
   const status = document.getElementById("loc-status");
   if (!status) return;
+  // 清理上一次的恢复计时器（避免多次设置互相覆盖）
+  if (editHintTimer) {
+    clearTimeout(editHintTimer);
+    editHintTimer = null;
+  }
+  if (keep) {
+    // 常驻：记录文案、显示且不清除，直到被清空/退出编辑模式
+    editHintText = msg;
+    status.textContent = msg;
+    status.style.display = "";
+    status.style.color = isError ? "var(--danger)" : "var(--accent)";
+    return;
+  }
+  if (msg === "") {
+    // 显式清空：同时清掉常驻文案
+    editHintText = "";
+    status.textContent = "";
+    status.style.display = "none";
+    return;
+  }
+  // 普通提示：2.5 秒后隐藏；若仍在编辑模式且有常驻提示，则恢复常驻提示
   status.textContent = msg;
   status.style.display = "";
   status.style.color = isError ? "var(--danger)" : "var(--accent)";
-  setTimeout(() => (status.style.display = "none"), 2500);
+  editHintTimer = setTimeout(() => {
+    status.style.display = "none";
+    if (editMode && editHintText) {
+      showStatus(editHintText, false, true);
+    }
+  }, 2500);
 }
 
 // ===== 内联添加子位置 =====

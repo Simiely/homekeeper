@@ -756,8 +756,7 @@ body.loc-edit-mode .loc-head:active {
 }
 body.loc-edit-mode .loc-head:hover {
   border-color: var(--accent);
-  background: var(--panel-2);
-}
+  background: var(--panel-2);}
 body.loc-edit-mode .loc-handle {
   color: var(--accent);
   font-weight: 700;
@@ -907,6 +906,20 @@ body.loc-dragging {
 /* 卡片内联添加子位置表单 */
 .loc-inline-form .card {
   background: var(--panel-2);
+}
+/* 改名表单：输入框 + 保存/取消按钮并排一行，不换行占满屏
+   （覆盖 768px 断点 .card{flex-direction:column} 的影响） */
+.loc-inline-form .card {
+  flex-direction: row;
+  flex-wrap: nowrap;
+}
+.loc-inline-form .card input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.loc-inline-form .card button {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 /* 拖拽反馈（自研 Pointer 拖拽） */
 /* 拖拽进行中：禁用卡片 hover 高亮，只保留被拖对象 + 占位框的变化 */
