@@ -1,12 +1,12 @@
-"""标签 CRUD。"""
-from fastapi import APIRouter, Depends, HTTPException, status
+"""标签 CRUD（业务逻辑在 services/tag_service.py，异常由全局处理器转 HTTP）。"""
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.tag import TagCreate, TagOut, TagUpdate
+from app.services import tag_service
 
 router = APIRouter(prefix="/api/tags", tags=["tags"])
 
@@ -16,12 +16,7 @@ def list_tags(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
-        db.query(Tag)
-        .filter(Tag.owner_id == current_user.id)
-        .order_by(Tag.name)
-        .all()
-    )
+    return tag_service.list_tags(db, current_user)
 
 
 @router.get("/{tag_id}", response_model=TagOut)
@@ -30,14 +25,7 @@ def get_tag(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tag = (
-        db.query(Tag)
-        .filter(Tag.id == tag_id, Tag.owner_id == current_user.id)
-        .first()
-    )
-    if not tag:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="标签不存在")
-    return tag
+    return tag_service.get_tag(db, current_user, tag_id)
 
 
 @router.post("", response_model=TagOut, status_code=status.HTTP_201_CREATED)
@@ -46,11 +34,7 @@ def create_tag(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tag = Tag(owner_id=current_user.id, **payload.model_dump())
-    db.add(tag)
-    db.commit()
-    db.refresh(tag)
-    return tag
+    return tag_service.create_tag(db, current_user, payload)
 
 
 @router.put("/{tag_id}", response_model=TagOut)
@@ -60,18 +44,7 @@ def update_tag(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tag = (
-        db.query(Tag)
-        .filter(Tag.id == tag_id, Tag.owner_id == current_user.id)
-        .first()
-    )
-    if not tag:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="标签不存在")
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(tag, key, value)
-    db.commit()
-    db.refresh(tag)
-    return tag
+    return tag_service.update_tag(db, current_user, tag_id, payload)
 
 
 @router.delete("/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -80,13 +53,4 @@ def delete_tag(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tag = (
-        db.query(Tag)
-        .filter(Tag.id == tag_id, Tag.owner_id == current_user.id)
-        .first()
-    )
-    if not tag:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="标签不存在")
-    db.delete(tag)
-    db.commit()
-    return None
+    tag_service.delete_tag(db, current_user, tag_id)

@@ -17,14 +17,12 @@ from app.models.status import ItemStatus
 from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.item import BatchAction, ItemCreate, ItemUpdate, PaginatedItems
+# TagNotFoundError 统一由 tag_service 定义（main.py 全局处理器注册该类）
+from app.services.tag_service import TagNotFoundError
 
 
 class ItemNotFoundError(Exception):
     """物品不存在（或不属于当前用户）。"""
-
-
-class TagNotFoundError(Exception):
-    """标签不存在（或不属于当前用户）。"""
 
 
 def get_owned_item(db: Session, user: User, item_id: int) -> Item:

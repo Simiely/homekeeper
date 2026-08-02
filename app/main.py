@@ -31,7 +31,9 @@ from app.routers import (
 from app.services import audit  # noqa: F401 — 激活操作日志监听器
 from app.services import scheduler as scheduler_mgr
 from app.services.backup import BackupCorruptError, BackupNotFoundError
-from app.services.item_service import ItemNotFoundError, TagNotFoundError
+from app.services.category_service import CategoryNotFoundError
+from app.services.item_service import ItemNotFoundError
+from app.services.tag_service import TagNotFoundError
 
 logger = logging.getLogger("homekeeper.main")
 
@@ -104,6 +106,11 @@ async def item_not_found_handler(request: Request, exc: ItemNotFoundError):
 @app.exception_handler(TagNotFoundError)
 async def tag_not_found_handler(request: Request, exc: TagNotFoundError):
     return JSONResponse(status_code=404, content={"detail": "标签不存在"})
+
+
+@app.exception_handler(CategoryNotFoundError)
+async def category_not_found_handler(request: Request, exc: CategoryNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": "分类不存在"})
 
 
 @app.exception_handler(BackupNotFoundError)

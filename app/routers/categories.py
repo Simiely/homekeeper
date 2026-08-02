@@ -1,12 +1,12 @@
-"""分类 / 标签 CRUD。"""
-from fastapi import APIRouter, Depends, HTTPException, status
+"""分类 CRUD（业务逻辑在 services/category_service.py，异常由全局处理器转 HTTP）。"""
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models.category import Category
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
+from app.services import category_service
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
@@ -16,12 +16,7 @@ def list_categories(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
-        db.query(Category)
-        .filter(Category.owner_id == current_user.id)
-        .order_by(Category.id)
-        .all()
-    )
+    return category_service.list_categories(db, current_user)
 
 
 @router.get("/{cat_id}", response_model=CategoryOut)
@@ -30,14 +25,7 @@ def get_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    cat = (
-        db.query(Category)
-        .filter(Category.id == cat_id, Category.owner_id == current_user.id)
-        .first()
-    )
-    if not cat:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分类不存在")
-    return cat
+    return category_service.get_category(db, current_user, cat_id)
 
 
 @router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
@@ -46,11 +34,7 @@ def create_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    cat = Category(owner_id=current_user.id, **payload.model_dump())
-    db.add(cat)
-    db.commit()
-    db.refresh(cat)
-    return cat
+    return category_service.create_category(db, current_user, payload)
 
 
 @router.put("/{cat_id}", response_model=CategoryOut)
@@ -60,18 +44,7 @@ def update_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    cat = (
-        db.query(Category)
-        .filter(Category.id == cat_id, Category.owner_id == current_user.id)
-        .first()
-    )
-    if not cat:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分类不存在")
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(cat, key, value)
-    db.commit()
-    db.refresh(cat)
-    return cat
+    return category_service.update_category(db, current_user, cat_id, payload)
 
 
 @router.delete("/{cat_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -80,12 +53,4 @@ def delete_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    cat = (
-        db.query(Category)
-        .filter(Category.id == cat_id, Category.owner_id == current_user.id)
-        .first()
-    )
-    if not cat:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分类不存在")
-    db.delete(cat)
-    db.commit()
+    category_service.delete_category(db, current_user, cat_id)
