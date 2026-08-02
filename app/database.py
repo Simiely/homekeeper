@@ -17,9 +17,10 @@ if _database_url.startswith("sqlite:///"):
     if _rel and not is_abs:
         _database_url = f"sqlite:///{(PROJECT_ROOT / _rel).as_posix()}"
 
-# SQLite 需要关闭同线程检查以在 FastAPI 异步上下文使用
+# SQLite 需要关闭同线程检查以在 FastAPI 异步上下文使用；
+# timeout=30：busy 时等待锁最多 30s（默认 5s 太短，并发写易 database is locked）
 connect_args = (
-    {"check_same_thread": False}
+    {"check_same_thread": False, "timeout": 30}
     if _database_url.startswith("sqlite")
     else {}
 )
@@ -33,6 +34,9 @@ def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
     if _database_url.startswith("sqlite"):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        # WAL 模式：读写并发不互斥，显著降低写锁冲突（audit 事件监听器与业务同写时必需）
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
 
 

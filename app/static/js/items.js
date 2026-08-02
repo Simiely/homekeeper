@@ -1,14 +1,14 @@
-// 物品视图：筛选 + 列表 + 新增 + 删除（关联位置/分类/状态/保质期）
-import { api, imgUrl } from "./api.js";
-import { showBorrowDialog, showLogDialog } from "./item-dialogs.js";
-import { batchItems, buildLocPath, buildTreeOptions, escapeHtml, viewError, viewLoading } from "./utils.js";
+// 物品视图编排器：加载元数据 + 渲染主模板 + 组装 ctx + 初始化子模块
+// 子模块：items-list.js（列表/筛选/CSV）、items-form.js（表单/编辑）、items-batch.js（批量）
+import { api } from "./api.js";
+import { buildTreeOptions, escapeHtml, viewError, viewLoading } from "./utils.js";
+import { initList } from "./items-list.js";
 
 // 状态字典：由后端 /api/meta 提供（单一数据源），此处为离线兜底值
 let STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃"];
 
 export async function renderItems() {
   const el = document.getElementById("view-items");
-  let items = []; // 当前页物品（loadItems 填充，顶层事件委托读取）
   el.innerHTML = viewLoading("物品");
   try {
     const [locations, categories, tags, meta] = await Promise.all([
@@ -82,217 +82,24 @@ export async function renderItems() {
       <div id="item-list"></div>
     `;
 
-    // ===== 事件委托（只注册一次，#item-list 是常驻节点，重渲染只改 innerHTML）=====
-    const listEl = el.querySelector("#item-list");
-    listEl.addEventListener("click", async (e) => {
-      // 上传图片
-      const uploadBtn = e.target.closest("[data-upload-item]");
-      if (uploadBtn) {
-        const itemId = uploadBtn.dataset.uploadItem;
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
-        input.addEventListener("change", async () => {
-          const file = input.files?.[0];
-          if (!file) return;
-          uploadBtn.classList.add("uploading");
-          uploadBtn.textContent = "…";
-          try {
-            const form = new FormData();
-            form.append("file", file);
-            await api.upload(`/items/${itemId}/images`, form);
-            loadItems();
-          } catch (err) {
-            alert("上传失败: " + err.message);
-            uploadBtn.classList.remove("uploading");
-            uploadBtn.textContent = "+";
-          }
-        });
-        input.click();
-        return;
-      }
-      // 图片点击放大
-      const imgWrap = e.target.closest("[data-img]");
-      if (imgWrap) {
-        const overlay = document.createElement("div");
-        overlay.className = "img-overlay";
-        overlay.innerHTML = `<img src="${imgWrap.dataset.img}" alt="" />`;
-        overlay.onclick = () => overlay.remove();
-        document.body.appendChild(overlay);
-        return;
-      }
-      // 翻页
-      const pageBtn = e.target.closest("[data-page]");
-      if (pageBtn) {
-        if (pageBtn.disabled) return;
-        currentPage = Number(pageBtn.dataset.page);
-        loadItems();
-        return;
-      }
-      // 编辑
-      const editBtn = e.target.closest("[data-edit]");
-      if (editBtn) {
-        const itemId = Number(editBtn.dataset.edit);
-        const item = items.find((it) => it.id === itemId);
-        if (item) startEdit(item);
-        return;
-      }
-      // 日志
-      const logBtn = e.target.closest("[data-log]");
-      if (logBtn) {
-        showLogDialog(logBtn.dataset.log);
-        return;
-      }
-      // 借用记录
-      const borrowBtn = e.target.closest("[data-borrow]");
-      if (borrowBtn) {
-        showBorrowDialog(borrowBtn.dataset.borrow, loadItems);
-        return;
-      }
-      // 二维码
-      const qrBtn = e.target.closest("[data-qr]");
-      if (qrBtn) {
-        const itemId = qrBtn.dataset.qr;
-        const overlay = document.createElement("div");
-        overlay.className = "img-overlay";
-        overlay.innerHTML = `<div style="background:var(--panel);padding:24px;border-radius:16px;text-align:center;cursor:default">
-          <img src="${imgUrl(`/api/items/${itemId}/qrcode`)}" style="width:200px;height:200px;border-radius:8px" />
-          <p style="margin:8px 0 0;color:var(--text);font-size:14px">扫码查看物品</p>
-          <p style="margin:4px 0 0;color:var(--muted);font-size:12px">点击任意位置关闭</p>
-        </div>`;
-        overlay.onclick = () => overlay.remove();
-        document.body.appendChild(overlay);
-        return;
-      }
-      // 归档 / 取消归档
-      const archiveBtn = e.target.closest("[data-archive]");
-      if (archiveBtn) {
-        api.post(`/items/${archiveBtn.dataset.archive}/archive`).then(() => loadItems());
-        return;
-      }
-      const unarchiveBtn = e.target.closest("[data-unarchive]");
-      if (unarchiveBtn) {
-        api.post(`/items/${unarchiveBtn.dataset.unarchive}/unarchive`).then(() => loadItems());
-        return;
-      }
-      // 删除
-      const delBtn = e.target.closest("[data-del]");
-      if (delBtn) {
-        if (!confirm("确认删除？")) return;
-        api.del(`/items/${delBtn.dataset.del}`).then(() => loadItems());
-      }
-    });
-
-    // 新增物品
-    el.querySelector("#item-form").onsubmit = async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      try {
-        // 提取标签（单值模式下 tags 以逗号分隔）
-        const tagSelect = el.querySelector("[name=tags]");
-        const selectedTags = tagSelect ? Array.from(tagSelect.selectedOptions).map(o => o.value).filter(v => v) : [];
-
-        let itemId;
-        if (editingItemId) {
-          await api.put(`/items/${editingItemId}`, buildPayload(fd));
-          itemId = editingItemId;
-          // 清除旧标签（通过 API 获取当前标签）
-          const current = await api.get(`/items/${itemId}`);
-          if (current && current.tags) {
-            for (const t of current.tags) {
-              await api.del(`/items/${itemId}/tags/${t.id}`).catch(() => {});
-            }
-          }
-        } else {
-          const created = await api.post("/items", buildPayload(fd));
-          itemId = created.id;
-        }
-        // 添加新标签
-        for (const tagId of selectedTags) {
-          await api.post(`/items/${itemId}/tags/${tagId}`).catch(() => {});
-        }
-        if (editingItemId) cancelEdit();
-        loadItems();
-      } catch (err) {
-        alert(err.message);
-      }
+    // ===== 共享上下文（各子模块通过 ctx 读写，单一数据源）=====
+    const ctx = {
+      el,
+      locations,
+      categories,
+      tags,
+      statusOptions: STATUS_OPTIONS,
+      items: [], // 当前页物品（loadItems 填充，事件委托读取）
+      currentPage: 1,
+      editingItemId: null, // 编辑中物品 id（null = 新增模式）
+      loadItems: null, // 由 initList 注入
+      startEdit: null, // 由本文件注入（列表行 [data-edit] 分派）
     };
+    ctx.startEdit = (item) => startEdit(item);
 
-    // 筛选交互
-    const doSearch = () => { currentPage = 1; loadItems(); };
-    el.querySelector("#f-search").onclick = doSearch;
-    el.querySelector("#f-keyword").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") doSearch();
-    });
-    el.querySelector("#f-status").onchange = doSearch;
-    el.querySelector("#f-category").onchange = doSearch;
-    el.querySelector("#f-location").onchange = doSearch;
-    el.querySelector("#f-tag").onchange = doSearch;
-    el.querySelector("#f-archived").onchange = doSearch;
-    el.querySelector("#f-reset").onclick = () => {
-      el.querySelector("#f-keyword").value = "";
-      el.querySelector("#f-status").value = "";
-      el.querySelector("#f-category").value = "";
-      el.querySelector("#f-location").value = "";
-      el.querySelector("#f-tag").value = "";
-      loadItems();
-    };
-
-    // 导出 CSV（fetch+blob 带鉴权，window.open 会因无 Bearer 头而 401）
-    el.querySelector("#export-csv").onclick = async () => {
-      try {
-        await api.download("/export/items");
-      } catch (e) {
-        alert("导出失败：" + e.message);
-      }
-    };
-
-    // 导入 CSV
-    const fileInput = el.querySelector("#import-file");
-    el.querySelector("#import-csv").onclick = () => fileInput.click();
-    fileInput.onchange = async () => {
-      const file = fileInput.files?.[0];
-      if (!file) return;
-      const form = new FormData();
-      form.append("file", file);
-      try {
-        const result = await api.upload("/import/items", form);
-        let msg = `导入完成：${result.imported} 条成功`;
-        if (result.errors?.length) {
-          msg += `\n${result.errors.length} 条错误：\n${result.errors.slice(0, 5).join("\n")}`;
-          if (result.errors.length > 5) msg += `\n…还有 ${result.errors.length - 5} 条`;
-        }
-        alert(msg);
-        loadItems();
-      } catch (e) {
-        alert("导入失败：" + e.message);
-      }
-      fileInput.value = "";
-    };
-
-    // ---- 编辑模式 ----
-    let editingItemId = null;
-    let currentPage = 1;
-
-    // 从 URL 恢复筛选条件（刷新 #/items?kw=xx 或浏览器后退回来）
-    const urlP = window.__viewParams;
-    if (urlP) {
-      const setVal = (id, v) => {
-        if (v != null && v !== "") el.querySelector(id).value = v;
-      };
-      setVal("#f-keyword", urlP.get("kw"));
-      setVal("#f-status", urlP.get("status_filter"));
-      setVal("#f-category", urlP.get("category_id"));
-      setVal("#f-location", urlP.get("location_id"));
-      setVal("#f-tag", urlP.get("tag_id"));
-      if (urlP.get("show_archived")) el.querySelector("#f-archived").checked = true;
-    }
-
-    // 初次加载列表
-    loadItems();
-
+    // ===== 编辑模式（表单职责，Step 2 将迁移到 items-form.js）=====
     function startEdit(item) {
-      editingItemId = item.id;
+      ctx.editingItemId = item.id;
       const form = el.querySelector("#item-form");
       form.querySelector("[name=name]").value = item.name || "";
       form.querySelector("[name=description]").value = item.description || "";
@@ -307,7 +114,6 @@ export async function renderItems() {
       form.querySelector("[name=serial_number]").value = item.serial_number || "";
       form.querySelector("[name=price]").value = item.price ?? "";
       form.querySelector("[name=warranty_expiry]").value = item.warranty_expiry || "";
-      // 修改提交按钮
       const btn = form.querySelector("button[type=submit]");
       btn.textContent = "保存";
       if (!form.querySelector("#edit-cancel")) {
@@ -319,12 +125,11 @@ export async function renderItems() {
         cancel.onclick = cancelEdit;
         btn.after(cancel);
       }
-      // 滚动到表单
       form.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
     function cancelEdit() {
-      editingItemId = null;
+      ctx.editingItemId = null;
       const form = el.querySelector("#item-form");
       form.reset();
       form.querySelector("button[type=submit]").textContent = "添加";
@@ -332,204 +137,44 @@ export async function renderItems() {
       if (cancel) cancel.remove();
     }
 
-    function renderPagination(d) {
-      if (d.total_pages <= 1) return "";
-      let html = '<div class="pagination">';
-      const prevDisabled = d.page <= 1 ? "disabled" : "";
-      html += `<button class="page-btn" data-page="${d.page - 1}" ${prevDisabled}>‹ 上一页</button>`;
-      // 显示页码范围
-      const start = Math.max(1, d.page - 2);
-      const end = Math.min(d.total_pages, d.page + 2);
-      if (start > 1) html += `<button class="page-btn" data-page="1">1</button>${start > 2 ? '<span class="page-ellipsis">…</span>' : ""}`;
-      for (let p = start; p <= end; p++) {
-        html += `<button class="page-btn" data-page="${p}"${p === d.page ? ' style="background:var(--accent);color:#fff;border-color:var(--accent)"' : ""}>${p}</button>`;
-      }
-      if (end < d.total_pages) {
-        html += `${end < d.total_pages - 1 ? '<span class="page-ellipsis">…</span>' : ""}<button class="page-btn" data-page="${d.total_pages}">${d.total_pages}</button>`;
-      }
-      const nextDisabled = d.page >= d.total_pages ? "disabled" : "";
-      html += `<button class="page-btn" data-page="${d.page + 1}" ${nextDisabled}>下一页 ›</button>`;
-      html += "</div>";
-      return html;
-    }
-
-    async function loadItems() {
-      const listEl = el.querySelector("#item-list");
-      listEl.innerHTML = "<div class='loading'>加载中…</div>";
-      const params = new URLSearchParams();
-      const kw = el.querySelector("#f-keyword").value.trim();
-      const st = el.querySelector("#f-status").value;
-      const ca = el.querySelector("#f-category").value;
-      const lo = el.querySelector("#f-location").value;
-      const ta = el.querySelector("#f-tag").value;
-      if (kw) params.set("keyword", kw);
-      if (st) params.set("status_filter", st);
-      if (ca) params.set("category_id", ca);
-      if (lo) params.set("location_id", lo);
-      if (ta) params.set("tag_id", ta);
-      if (el.querySelector("#f-archived").checked) params.set("show_archived", "true");
-      params.set("page", currentPage);
-      params.set("page_size", "20");
-      // 筛选条件同步到 URL（输入类，replace 不产生碎历史；可刷新保留/分享；不含分页）
-      window.syncHash?.(
-        {
-          kw: kw || undefined,
-          status_filter: st || undefined,
-          category_id: ca || undefined,
-          location_id: lo || undefined,
-          tag_id: ta || undefined,
-          show_archived: el.querySelector("#f-archived").checked ? "1" : undefined,
-        },
-        { replace: true }
-      );
-      const qs = params.toString();
-
-      let data;
+    // ===== 新增/编辑提交 =====
+    el.querySelector("#item-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
       try {
-        data = await api.get("/items?" + qs);
-      } catch (e) {
-        listEl.innerHTML = viewError(e.message);
-        return;
-      }
-      items = data.items;
-      const total = data.total;
-      const totalPages = data.total_pages;
+        const tagSelect = el.querySelector("[name=tags]");
+        const selectedTags = tagSelect ? Array.from(tagSelect.selectedOptions).map(o => o.value).filter(v => v) : [];
 
-      const locPath = buildLocPath(locations);
-      const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
-
-      // 并发获取所有物品的图片（取第一张）
-      const imgMap = {}; // item_id -> {filename, ...}
-      await Promise.all(
-        items.map(async (it) => {
-          try {
-            const imgs = await api.get(`/items/${it.id}/images`);
-            if (imgs.length > 0) imgMap[it.id] = imgs[0];
-          } catch {
-            // 静默失败，不阻塞列表渲染
+        let itemId;
+        if (ctx.editingItemId) {
+          await api.put(`/items/${ctx.editingItemId}`, buildPayload(fd));
+          itemId = ctx.editingItemId;
+          const current = await api.get(`/items/${itemId}`);
+          const removeTags = (current.tags || []).map((t) => t.id).filter((id) => !selectedTags.includes(String(id)));
+          for (const tid of removeTags) {
+            await api.del(`/items/${itemId}/tags/${tid}`);
           }
-        })
-      );
-
-      const rows = items
-        .map(
-          (it) => {
-            const img = imgMap[it.id];
-            const imgCell = img
-              ? `<div class="thumb-wrap" data-img="${imgUrl(`/api/images/${img.item_id}/${img.filename}`)}" title="点击放大">
-                   <img src="${imgUrl(`/api/images/${img.item_id}/${img.filename}`)}" alt="" loading="lazy" />
-                 </div>`
-              : `<button class="upload-btn" data-upload-item="${it.id}" title="上传图片">+</button>`;
-            return `
-        <tr${it.archived ? ' class="archived"' : ""}>
-          <td><input type="checkbox" class="item-cb" value="${it.id}" /></td>
-          <td>${escapeHtml(it.name)}</td>
-          <td>${locPath(it.location_id) || "—"}${
-              it.location_note ? " (" + escapeHtml(it.location_note) + ")" : ""
-            }</td>
-          <td>${catMap[it.category_id] || "—"}</td>
-          <td>${it.quantity} ${escapeHtml(it.unit)}</td>
-          <td>${it.price ? '¥' + it.price.toFixed(2) : "—"}</td>
-          <td>${escapeHtml(it.status)}</td>
-          <td>${it.expiry_date || "—"}</td>
-          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(it.serial_number || "") || "—"}</td>
-          <td>${it.warranty_expiry || "—"}</td>
-          <td>${(it.tags || []).map(t => `<span class="tag-chip" style="background:${t.color}20;color:${t.color};border-color:${t.color}60">${escapeHtml(t.name)}</span>`).join(" ") || "—"}</td>
-          <td style="text-align:center">${imgCell}</td>
-          <td style="white-space:nowrap">
-            <button data-edit="${it.id}" class="mini-btn">编</button>
-            <button data-log="${it.id}" class="mini-btn muted" title="操作日志">日志</button>
-            <button data-borrow="${it.id}" class="mini-btn muted" title="借用记录">借</button>
-            <button data-qr="${it.id}" class="mini-btn muted" title="二维码">◈</button>
-            ${it.archived
-              ? `<button data-unarchive="${it.id}" class="mini-btn muted">取消归档</button>`
-              : `<button data-archive="${it.id}" class="mini-btn muted">归档</button>`}
-            <button data-del="${it.id}" class="mini-btn danger">删</button>
-          </td>
-        </tr>`;
-          }
-        )
-        .join("");
-
-      listEl.innerHTML = `
-        <p class="muted">共 ${total} 件 · 第 ${data.page}/${totalPages} 页</p>
-        <table class="list">
-          <thead><tr><th style="width:32px"><input type="checkbox" id="select-all" /></th><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>价格</th><th>状态</th><th>保质期</th><th>序列号</th><th>保修</th><th>标签</th><th>图片</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="13" class="muted">无匹配物品</td></tr>'}</tbody>
-        </table>
-        <div id="batch-bar" class="batch-bar" style="display:none">
-          <span id="batch-count" class="muted" style="margin-right:8px">已选 0 件</span>
-          <select id="batch-status"><option value="">改状态</option>${STATUS_OPTIONS.map(s => `<option value="${s}">${s}</option>`).join("")}</select>
-          <select id="batch-category"><option value="">改分类</option>${categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select>
-          <button id="batch-archive" class="ghost" style="font-size:12px">归档</button>
-          <button id="batch-delete" class="ghost" style="font-size:12px;color:var(--danger)">删除</button>
-        </div>
-        ${renderPagination(data)}
-      `;
-
-      // 批量操作
-      const batchBar = el.querySelector("#batch-bar");
-      const batchCount = el.querySelector("#batch-count");
-
-      function updateBatchBar() {
-        const checked = el.querySelectorAll(".item-cb:checked");
-        const count = checked.length;
-        if (count > 0) {
-          batchBar.style.display = "flex";
-          batchCount.textContent = `已选 ${count} 件`;
         } else {
-          batchBar.style.display = "none";
+          const created = await api.post("/items", buildPayload(fd));
+          itemId = created.id;
         }
+        // 新增标签（已存在跳过）
+        for (const tid of selectedTags) {
+          try {
+            await api.post(`/items/${itemId}/tags/${tid}`);
+          } catch {
+            // 标签已存在则忽略
+          }
+        }
+        cancelEdit();
+        ctx.loadItems();
+      } catch (err) {
+        alert("保存失败：" + err.message);
       }
+    };
 
-      // 单选
-      el.querySelectorAll(".item-cb").forEach((cb) => {
-        cb.onchange = updateBatchBar;
-      });
-
-      // 全选
-      el.querySelector("#select-all").onchange = function () {
-        el.querySelectorAll(".item-cb").forEach((cb) => (cb.checked = this.checked));
-        updateBatchBar();
-      };
-
-      // 批量归档
-      el.querySelector("#batch-archive").onclick = () => {
-        const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
-        if (!ids.length) return;
-        batchItems(ids, "archive").then(() => loadItems());
-      };
-
-      // 批量删除
-      el.querySelector("#batch-delete").onclick = () => {
-        const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
-        if (!ids.length) return;
-        if (!confirm(`确认删除 ${ids.length} 件物品？`)) return;
-        batchItems(ids, "delete").then(() => loadItems());
-      };
-
-      // 批量改状态
-      el.querySelector("#batch-status").onchange = function () {
-        if (!this.value) return;
-        const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
-        if (!ids.length) return;
-        batchItems(ids, "update", { status: this.value }).then(() => {
-          this.value = "";
-          loadItems();
-        });
-      };
-
-      // 批量改分类
-      el.querySelector("#batch-category").onchange = function () {
-        if (!this.value) return;
-        const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
-        if (!ids.length) return;
-        batchItems(ids, "update", { category_id: Number(this.value) }).then(() => {
-          this.value = "";
-          loadItems();
-        });
-      };
-    }
+    // 初始化子模块（列表/筛选/CSV + 初次加载）
+    initList(ctx);
   } catch (e) {
     el.innerHTML = viewError(e.message);
   }
