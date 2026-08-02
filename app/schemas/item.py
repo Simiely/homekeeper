@@ -21,6 +21,7 @@ class ItemBase(BaseModel):
     shelf_life_days: int | None = None  # 保质期天数（选填）
     price: float | None = None
     serial_number: str | None = None
+    barcode: str | None = None  # 条形码（扫码录入）
     warranty_expiry: date | None = None
 
 
@@ -42,6 +43,7 @@ class ItemUpdate(BaseModel):
     shelf_life_days: int | None = None
     price: float | None = None
     serial_number: str | None = None
+    barcode: str | None = None
     warranty_expiry: date | None = None
     archived: bool | None = None
 

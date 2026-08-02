@@ -42,6 +42,7 @@ def list_items(
     user: User,
     *,
     keyword: str | None = None,
+    barcode: str | None = None,
     status_filter: ItemStatus | None = None,
     category_id: int | None = None,
     location_id: int | None = None,
@@ -51,7 +52,10 @@ def list_items(
     page_size: int = 20,
 ) -> PaginatedItems:
     q = db.query(Item).filter(Item.owner_id == user.id)
-    if keyword:
+    if barcode:
+        # 条形码精确匹配（扫码查重）
+        q = q.filter(Item.barcode == barcode)
+    elif keyword:
         # 关键词命中：物品自身字段 + 位置名 + 分类名 + 标签名（join 关联表）
         loc_alias = aliased(Location)
         cat_alias = aliased(Category)
@@ -68,6 +72,7 @@ def list_items(
                     Item.description.contains(keyword),
                     Item.location_note.contains(keyword),
                     Item.serial_number.contains(keyword),
+                    Item.barcode.contains(keyword),
                     loc_alias.name.contains(keyword),
                     cat_alias.name.contains(keyword),
                     tag_alias.name.contains(keyword),

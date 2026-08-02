@@ -10,6 +10,50 @@ export function initForm(ctx) {
   const photoPick = el.querySelector("#item-photo-pick");
   const photoPreview = el.querySelector("#item-photo-preview");
   let photoFile = null; // 待上传的照片文件（新增模式）
+  const barcodeInput = form.querySelector("[name=barcode]");
+
+  // ---- 条形码：摄像头扫码（BarcodeDetector 渐进增强；不支持则仅手动/扫码枪输入）----
+  const scanBtn = form.querySelector("#barcode-scan");
+  if (scanBtn && "BarcodeDetector" in window && navigator.mediaDevices?.getUserMedia) {
+    scanBtn.classList.remove("hidden");
+    scanBtn.onclick = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.setAttribute("playsinline", "");
+        const holder = document.createElement("div");
+        holder.className = "scan-view";
+        holder.appendChild(video);
+        form.insertBefore(holder, form.firstChild);
+        await video.play();
+        const detector = new BarcodeDetector({
+          formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"],
+        });
+        const stop = () => {
+          clearInterval(timer);
+          clearTimeout(timeout);
+          stream.getTracks().forEach((t) => t.stop());
+          holder.remove();
+        };
+        const timer = setInterval(async () => {
+          try {
+            const codes = await detector.detect(video);
+            if (codes.length) {
+              barcodeInput.value = codes[0].rawValue;
+              stop();
+            }
+          } catch {
+            // 帧检测失败忽略，继续
+          }
+        }, 300);
+        const timeout = setTimeout(stop, 30000); // 30 秒未识别自动关闭
+        holder.onclick = stop; // 点取景区域取消
+      } catch (e) {
+        showDialog({ title: "无法使用相机", message: e.message, confirmText: "知道了" });
+      }
+    };
+  }
 
   // ---- 保质期天数 → 自动计算到期时间（购买日期 + 天数；无购买日期按今天）----
   const shelfInput = form.querySelector("[name=shelf_life_days]");
@@ -62,6 +106,7 @@ export function initForm(ctx) {
     form.querySelector("[name=shelf_life_days]").value = item.shelf_life_days ?? "";
     form.querySelector("[name=purchase_date]").value = item.purchase_date || "";
     form.querySelector("[name=serial_number]").value = item.serial_number || "";
+    if (barcodeInput) barcodeInput.value = item.barcode || "";
     form.querySelector("[name=price]").value = item.price ?? "";
     form.querySelector("[name=warranty_expiry]").value = item.warranty_expiry || "";
     const btn = form.querySelector("button[type=submit]");
@@ -116,6 +161,27 @@ export function initForm(ctx) {
           await api.del(`/items/${itemId}/tags/${tid}`);
         }
       } else {
+        // 新增：条形码查重——同条码已有物品时提供「数量+1」快速录入
+        const barcode = buildPayload(fd, ctx.statusOptions?.[0]).barcode;
+        if (barcode) {
+          const dup = await api.get(`/items?barcode=${encodeURIComponent(barcode)}`);
+          if (dup.items?.length) {
+            const exist = dup.items[0];
+            const choice = await showDialog({
+              title: "该条码已有物品",
+              message: `「${exist.name}」（数量 ${exist.quantity}）。重复条码通常是同款物品，要累加数量还是新建一条？`,
+              confirmText: "数量 +1",
+              cancelText: "仍新建",
+              danger: false,
+            });
+            if (choice) {
+              await api.put(`/items/${exist.id}`, { quantity: (exist.quantity || 0) + 1 });
+              cancelEdit();
+              ctx.loadItems();
+              return;
+            }
+          }
+        }
         const created = await api.post("/items", buildPayload(fd, ctx.statusOptions?.[0]));
         itemId = created.id;
       }
@@ -161,6 +227,7 @@ function buildPayload(fd, statusFallback) {
     purchase_date: fd.get("purchase_date") || null,
     shelf_life_days: fd.get("shelf_life_days") ? Number(fd.get("shelf_life_days")) : null,
     serial_number: fd.get("serial_number") || null,
+    barcode: fd.get("barcode")?.trim() || null,
     price: fd.get("price") ? Number(fd.get("price")) : null,
     warranty_expiry: fd.get("warranty_expiry") || null,
   };

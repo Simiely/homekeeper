@@ -1594,3 +1594,41 @@ tr.archived td {
   border-radius: 10px;
   border: 1px solid var(--border);
 }
+
+/* 条形码输入行 + 扫码取景 */
+.barcode-row {
+  display: flex;
+  gap: 8px;
+}
+.barcode-row input {
+  flex: 1;
+}
+.barcode-row .ghost {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.scan-view {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--accent);
+  cursor: pointer;
+}
+.scan-view video {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  display: block;
+}
+.scan-view::after {
+  content: "点击取消扫码";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px 0;
+}

@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/items", tags=["items"])
 @router.get("", response_model=PaginatedItems)
 def list_items(
     keyword: str | None = None,
+    barcode: str | None = None,
     status_filter: ItemStatus | None = None,
     category_id: int | None = None,
     location_id: int | None = None,
@@ -33,6 +34,7 @@ def list_items(
         db,
         current_user,
         keyword=keyword,
+        barcode=barcode,
         status_filter=status_filter,
         category_id=category_id,
         location_id=location_id,
