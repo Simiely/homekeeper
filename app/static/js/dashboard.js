@@ -110,7 +110,7 @@ export async function renderDashboard() {
       </div>
     </section>
 
-    <p class="home-stats muted">共 ${summary.total} 件物品 · 资产总值 ¥${(summary.total_value || 0).toFixed(2)}</p>
+    <p class="home-stats muted">共 ${summary.total} 件 · 资产总值 ¥${(summary.total_value || 0).toFixed(2)}</p>
   `;
 
   // ---------- 最近搜索 ----------

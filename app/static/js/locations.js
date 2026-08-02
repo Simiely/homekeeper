@@ -190,7 +190,7 @@ function renderCards(nodes, itemsByLoc) {
         <span class="loc-handle" title="可拖拽">≡</span>
         <span class="loc-name">${escapeHtml(node.name)}</span>
         ${node.note ? `<span class="loc-note">— ${escapeHtml(node.note)}</span>` : ""}
-        <span class="loc-count">${items.length} 件物品</span>
+        <span class="loc-count">${items.length} 件</span>
         <span class="loc-actions">
           <button class="loc-add" data-add-child="${node.id}" title="在此位置下添加子位置">+</button>
           ${isRoot ? "" : `<button class="loc-del" data-del="${node.id}" title="删除">✕</button>`}
