@@ -2,7 +2,7 @@
 // 通过 initList(ctx) 注入上下文（items.js 编排器创建 ctx），无循环依赖
 import { api, imgUrl } from "./api.js";
 import { showBorrowDialog, showLogDialog } from "./item-dialogs.js";
-import { batchItems, buildLocPath, escapeHtml, viewError } from "./utils.js";
+import { buildLocPath, escapeHtml, viewError } from "./utils.js";
 
 export function initList(ctx) {
   const el = ctx.el;
@@ -307,57 +307,8 @@ export function initList(ctx) {
       ${renderPagination(data)}
     `;
 
-    // 批量操作（Step 3 将迁移到 items-batch.js）
-    const batchBar = el.querySelector("#batch-bar");
-    const batchCount = el.querySelector("#batch-count");
-
-    function updateBatchBar() {
-      const checked = el.querySelectorAll(".item-cb:checked");
-      const count = checked.length;
-      if (count > 0) {
-        batchBar.style.display = "flex";
-        batchCount.textContent = `已选 ${count} 件`;
-      } else {
-        batchBar.style.display = "none";
-      }
-    }
-
-    el.querySelectorAll(".item-cb").forEach((cb) => {
-      cb.onchange = updateBatchBar;
-    });
-    el.querySelector("#select-all").onchange = function () {
-      el.querySelectorAll(".item-cb").forEach((cb) => (cb.checked = this.checked));
-      updateBatchBar();
-    };
-    el.querySelector("#batch-archive").onclick = () => {
-      const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
-      if (!ids.length) return;
-      batchItems(ids, "archive").then(() => ctx.loadItems());
-    };
-    el.querySelector("#batch-delete").onclick = () => {
-      const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
-      if (!ids.length) return;
-      if (!confirm(`确认删除 ${ids.length} 件物品？`)) return;
-      batchItems(ids, "delete").then(() => ctx.loadItems());
-    };
-    el.querySelector("#batch-status").onchange = function () {
-      if (!this.value) return;
-      const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
-      if (!ids.length) return;
-      batchItems(ids, "update", { status: this.value }).then(() => {
-        this.value = "";
-        ctx.loadItems();
-      });
-    };
-    el.querySelector("#batch-category").onchange = function () {
-      if (!this.value) return;
-      const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
-      if (!ids.length) return;
-      batchItems(ids, "update", { category_id: Number(this.value) }).then(() => {
-        this.value = "";
-        ctx.loadItems();
-      });
-    };
+    // 批量操作条绑定（由 items-batch.js 提供，重渲染后重新绑定）
+    ctx.bindBatch?.();
   }
 
   ctx.loadItems = loadItems;

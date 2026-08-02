@@ -2,8 +2,9 @@
 // 子模块：items-list.js（列表/筛选/CSV）、items-form.js（表单/编辑）、items-batch.js（批量）
 import { api } from "./api.js";
 import { buildTreeOptions, escapeHtml, viewError, viewLoading } from "./utils.js";
-import { initList } from "./items-list.js";
+import { initBatch } from "./items-batch.js";
 import { initForm } from "./items-form.js";
+import { initList } from "./items-list.js";
 
 // 状态字典：由后端 /api/meta 提供（单一数据源），此处为离线兜底值
 let STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃"];
@@ -95,10 +96,12 @@ export async function renderItems() {
       editingItemId: null, // 编辑中物品 id（null = 新增模式）
       loadItems: null, // 由 initList 注入
       startEdit: null, // 由 initForm 注入（列表行 [data-edit] 分派）
+      bindBatch: null, // 由 initBatch 注入（列表重渲染后调用）
     };
 
-    // 初始化子模块（表单/编辑、列表/筛选/CSV + 初次加载）
+    // 初始化子模块（表单/编辑、批量、列表/筛选/CSV + 初次加载）
     initForm(ctx);
+    initBatch(ctx);
     initList(ctx);
   } catch (e) {
     el.innerHTML = viewError(e.message);
