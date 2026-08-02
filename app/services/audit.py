@@ -27,27 +27,44 @@ def _log(connection, item: Item, action: str, summary: str = ""):
 
 
 def _changes(item: Item) -> str:
-    """检测 Item 的变更字段，返回摘要。"""
+    """检测 Item 的变更字段，返回口语化摘要（中文字段名）。"""
     from sqlalchemy.orm.attributes import get_history
 
+    # 字段 → 中文名（顺序即展示顺序）
+    FIELD_LABELS = [
+        ("name", "名称"),
+        ("description", "描述"),
+        ("quantity", "数量"),
+        ("unit", "单位"),
+        ("status", "状态"),
+        ("location_id", "位置"),
+        ("location_note", "位置备注"),
+        ("category_id", "分类"),
+        ("expiry_date", "保质期到期"),
+        ("shelf_life_days", "保质期天数"),
+        ("purchase_date", "购买日期"),
+        ("price", "价格"),
+        ("serial_number", "序列号"),
+        ("warranty_expiry", "保修到期"),
+        ("archived", "已处理标记"),
+    ]
     parts = []
-    # 检查每个字段是否有变化
-    for attr in ["name", "description", "quantity", "unit", "status", "location_id",
-                  "category_id", "expiry_date", "purchase_date", "price",
-                  "serial_number", "warranty_expiry", "archived", "location_note"]:
+    for attr, label in FIELD_LABELS:
         hist = get_history(item, attr)
         if hist.has_changes():
             old = _val(hist.deleted[0]) if hist.deleted else ""
             new = _val(hist.added[0]) if hist.added else ""
             # 跳过初始创建时的 None→值
             if old or new:
-                parts.append(f"{attr}: {old} → {new}")
+                parts.append(f"{label}：{old or '空'} → {new or '空'}")
     return "；".join(parts) if parts else "信息已更新"
 
 
 def _val(v):
     if v is None:
         return ""
+    if hasattr(v, "value"):  # 枚举（如 ItemStatus）→ 中文显示值
+        return v.value
     if hasattr(v, "isoformat"):
         return v.isoformat()
     return str(v)
