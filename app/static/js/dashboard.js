@@ -144,12 +144,12 @@ export async function renderDashboard() {
     if (!kw) {
       resultsEl.classList.add("hidden");
       resultsEl.innerHTML = "";
-      window.syncHash?.({}); // 清空搜索参数
+      window.syncHash?.({}, { replace: true }); // 清空搜索参数（不产生历史）
       return;
     }
     pushRecent(kw);
     renderRecent();
-    window.syncHash?.({ q: kw }); // 搜索词同步到 URL（replaceState，可分享/刷新保留）
+    window.syncHash?.({ q: kw }, { replace: true }); // 搜索词同步 URL（输入类，不产生碎历史）
     resultsEl.innerHTML = '<p class="muted">搜索中…</p>';
     resultsEl.classList.remove("hidden");
     try {

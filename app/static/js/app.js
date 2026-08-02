@@ -227,8 +227,18 @@ function applyView(name, params) {
   views[name]();
 }
 
+let __lastView = null;
+
 function onHashChange() {
   const { view, params } = parseHash();
+  window.__viewParams = params;
+  // 同视图内参数变化（如展开位置）由 syncHash 标记跳过重渲染；视图切换才真正渲染
+  if (window.__skipRender && view === __lastView) {
+    window.__skipRender = false;
+    return;
+  }
+  window.__skipRender = false;
+  __lastView = view;
   applyView(view, params);
 }
 
@@ -243,16 +253,24 @@ window.showView = (name, params = {}) => {
   location.hash = `#/${name}${qs ? "?" + qs : ""}`;
 };
 
-// 视图内状态同步（replaceState：不产生历史、不触发 hashchange）
-// 首页搜索词 / 位置展开等变化时调用，URL 实时同步、可分享、刷新保留
-window.syncHash = (params) => {
+// 视图内状态同步：
+//  - 默认 push 历史（可逐步后退，如位置展开 A→B，后退回到 A）
+//  - replace=true 仅更新 URL 不产生历史（连续输入类状态，如搜索词/筛选）
+window.syncHash = (params, opts = {}) => {
   const { view } = parseHash();
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params || {})) {
     if (v != null && v !== "") q.set(k, v);
   }
   const qs = q.toString();
-  history.replaceState(null, "", `#/${view}${qs ? "?" + qs : ""}`);
+  const newHash = `#/${view}${qs ? "?" + qs : ""}`;
+  if (location.hash === newHash) return; // 无变化不产生历史
+  if (opts.replace) {
+    history.replaceState(null, "", newHash);
+  } else {
+    window.__skipRender = true; // 同视图参数变化：hashchange 时跳过重渲染，避免闪动
+    location.hash = newHash;
+  }
 };
 
 // 导航按钮：写入 hash，由 hashchange 统一驱动渲染

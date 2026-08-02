@@ -370,15 +370,18 @@ export async function renderItems() {
       if (el.querySelector("#f-archived").checked) params.set("show_archived", "true");
       params.set("page", currentPage);
       params.set("page_size", "20");
-      // 筛选条件同步到 URL（hash 路由：刷新保留、可分享；不含分页）
-      window.syncHash?.({
-        kw: kw || undefined,
-        status_filter: st || undefined,
-        category_id: ca || undefined,
-        location_id: lo || undefined,
-        tag_id: ta || undefined,
-        show_archived: el.querySelector("#f-archived").checked ? "1" : undefined,
-      });
+      // 筛选条件同步到 URL（输入类，replace 不产生碎历史；可刷新保留/分享；不含分页）
+      window.syncHash?.(
+        {
+          kw: kw || undefined,
+          status_filter: st || undefined,
+          category_id: ca || undefined,
+          location_id: lo || undefined,
+          tag_id: ta || undefined,
+          show_archived: el.querySelector("#f-archived").checked ? "1" : undefined,
+        },
+        { replace: true }
+      );
       const qs = params.toString();
 
       let data;
