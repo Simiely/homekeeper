@@ -124,9 +124,14 @@ export async function renderAdd() {
           </div>
           <div class="form-field full">
             <label for="f-tags">标签</label>
-            <select id="f-tags" name="tags" multiple size="3" title="标签（按住 Ctrl 多选）">
-              ${tags.map((t) => `<option value="${t.id}" style="color:${t.color}">${escapeHtml(t.name)}</option>`).join("")}
-            </select>
+            <div id="tag-picker" class="tag-picker">
+              ${tags.map((t) => `<button type="button" class="tag-chip tag-opt" data-tid="${t.id}">${escapeHtml(t.name)}</button>`).join("")}
+              ${tags.length ? "" : '<span class="tag-picker-empty">暂无标签，可直接新建</span>'}
+            </div>
+            <div class="tag-new-row">
+              <input id="tag-new-name" placeholder="新标签名，回车即创建并选中" maxlength="20" />
+              <button type="button" id="tag-new-add" class="ghost">＋ 新标签</button>
+            </div>
           </div>
         </fieldset>
 
@@ -271,6 +276,52 @@ export async function renderAdd() {
       inp.onchange = () => onPhotoPicked(inp);
     });
 
+    // ---- 标签按钮式多选（选中高亮 / 未选中灰色）+ 新建标签 ----
+    const tagPicker = form.querySelector("#tag-picker");
+    const tagNewName = form.querySelector("#tag-new-name");
+    const tagNewAdd = form.querySelector("#tag-new-add");
+
+    // 点击标签 chip → 切换选中
+    tagPicker.addEventListener("click", (e) => {
+      const chip = e.target.closest(".tag-opt");
+      if (!chip) return;
+      chip.classList.toggle("active");
+      chip.blur(); // 消除点击后 focus 残留
+    });
+
+    // 新建标签：输入名 → 立即创建并选中；同名已存在则直接选中
+    const addNewTag = async () => {
+      const name = tagNewName.value.trim();
+      if (!name) return;
+      // 同名标签已存在 → 直接选中，不重复创建
+      const dup = [...tagPicker.querySelectorAll(".tag-opt")].find((b) => b.textContent === name);
+      if (dup) {
+        dup.classList.add("active");
+        tagNewName.value = "";
+        return;
+      }
+      try {
+        const t = await api.post("/tags", { name });
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "tag-chip tag-opt active";
+        chip.dataset.tid = t.id;
+        chip.textContent = t.name;
+        tagPicker.appendChild(chip);
+        tagPicker.querySelector(".tag-picker-empty")?.remove();
+        tagNewName.value = "";
+      } catch (err) {
+        showDialog({ title: "新建标签失败", message: err.message, confirmText: "知道了" });
+      }
+    };
+    tagNewAdd.onclick = addNewTag;
+    tagNewName.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addNewTag();
+      }
+    });
+
     // ---- 返回 / 取消（有历史则后退，否则回物品页）----
     const goBack = () => {
       if (history.length > 1) history.back();
@@ -299,9 +350,10 @@ export async function renderAdd() {
         barcodeInput.value = item.barcode || "";
         form.querySelector("[name=price]").value = item.price ?? "";
         form.querySelector("[name=warranty_expiry]").value = item.warranty_expiry || "";
+        // 标签 chips 回填选中
         (item.tags || []).forEach((t) => {
-          const opt = form.querySelector(`[name=tags] option[value="${t.id}"]`);
-          if (opt) opt.selected = true;
+          const chip = tagPicker.querySelector(`.tag-opt[data-tid="${t.id}"]`);
+          if (chip) chip.classList.add("active");
         });
       } catch (e) {
         el.innerHTML = viewError(e.message);
@@ -313,8 +365,7 @@ export async function renderAdd() {
     form.onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
-      const tagSelect = el.querySelector("[name=tags]");
-      const selectedTags = tagSelect ? Array.from(tagSelect.selectedOptions).map((o) => o.value).filter((v) => v) : [];
+      const selectedTags = [...tagPicker.querySelectorAll(".tag-opt.active")].map((b) => b.dataset.tid);
       try {
         let itemId;
         if (editId) {

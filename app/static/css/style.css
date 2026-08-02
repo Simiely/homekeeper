@@ -1823,6 +1823,61 @@ tr.archived td {
   font-weight: 600;
 }
 
+/* ===== 添加/编辑页标签：按钮式多选（选中 accent 高亮 / 未选中灰色）+ 新建行 =====
+   .card button 规则（accent 填充）会覆盖 .ghost/.tag-opt，需更高优先级前缀 */
+.card .ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.card .ghost:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.tag-picker-empty {
+  font-size: 12px;
+  color: var(--muted);
+}
+.card .tag-opt {
+  cursor: pointer;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 4px 14px;
+  font-size: 13px;
+  font-weight: 400;
+  transition: all 0.12s ease;
+}
+.card .tag-opt:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.card .tag-opt.active {
+  background: rgba(251, 114, 153, 0.14);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.tag-new-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.tag-new-row input {
+  flex: 1;
+}
+.tag-new-row .ghost {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 /* 详情卡片 */
 .item-detail {
   background: var(--panel);
