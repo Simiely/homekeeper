@@ -1,6 +1,6 @@
 // 首页：快速找物品（全局搜索）+ 临期清理工作台 + 常用位置 + 统计（底部边缘弱化）
 import { api } from "./api.js";
-import { buildLocPath, escapeHtml, todayStr, viewError, viewLoading } from "./utils.js";
+import { buildLocPath, escapeHtml, showDialog, todayStr, viewError, viewLoading } from "./utils.js";
 
 const RECENT_KEY = "hk-recent-searches";
 const RECENT_MAX = 8;
@@ -178,15 +178,22 @@ export async function renderDashboard() {
   // ---------- 临期清理 ----------
   const groupsEl = el.querySelector("#exp-groups");
 
-  // 每行一个「已清理」按钮：确认后标记状态，物品从临期清单消失
+  // 每行一个「已清理」按钮：程序弹窗确认后标记状态，物品从临期清单消失
   const markCleaned = async (id, name) => {
-    if (!confirm(`确认「${name}」已清理？标记后不再出现在临期清理中。`)) return;
+    const ok = await showDialog({
+      title: "确认清理",
+      message: `确认「${name}」已清理？标记后不再出现在临期清理中。`,
+      confirmText: "已清理",
+      cancelText: "取消",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.put(`/items/${id}`, { status: "已清理" });
       await loadExpiring();
       renderDashboard(); // 刷新统计与常用位置
     } catch (e) {
-      alert("操作失败：" + e.message);
+      showDialog({ title: "操作失败", message: e.message, confirmText: "知道了" });
     }
   };
 
@@ -207,7 +214,10 @@ export async function renderDashboard() {
       ${!expired.length && !upcoming.length ? '<p class="muted">近 30 天没有需要处理的物品</p>' : ""}
     `;
     groupsEl.querySelectorAll(".exp-clean").forEach((btn) => {
-      btn.onclick = () => markCleaned(Number(btn.dataset.id), btn.dataset.name);
+      btn.onclick = (e) => {
+        e.currentTarget.blur(); // 消除点击后的 focus 残留（避免按钮保持高亮造成误解）
+        markCleaned(Number(btn.dataset.id), btn.dataset.name);
+      };
     });
   };
 

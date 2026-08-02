@@ -66,3 +66,33 @@ export function buildTreeOptions(locations, placeholder) {
   walk(tree, 0);
   return html;
 }
+
+// 程序自带确认/提示弹窗（替代原生 confirm/alert）
+// 用法：const ok = await showDialog({ title, message, confirmText, cancelText, danger })
+//  - 有 cancelText = 确认框（点确认 resolve(true)，取消/点遮罩 resolve(false)）
+//  - 无 cancelText = 提示框（点确定/点遮罩 resolve(false)，调用方无需理会返回值）
+export function showDialog({ title = "提示", message = "", confirmText = "确定", cancelText = null, danger = false }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "img-overlay";
+    overlay.style.cursor = "default";
+    overlay.innerHTML = `
+      <div class="hk-dialog" role="dialog" aria-modal="true">
+        <p class="hk-dialog-title">${escapeHtml(title)}</p>
+        <p class="hk-dialog-msg">${escapeHtml(message)}</p>
+        <div class="hk-dialog-actions">
+          ${cancelText ? `<button type="button" class="ghost" data-act="cancel">${escapeHtml(cancelText)}</button>` : ""}
+          <button type="button" class="${danger ? "danger" : ""}" data-act="ok">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>`;
+    const close = (result) => {
+      overlay.remove();
+      resolve(result);
+    };
+    overlay.querySelector("[data-act=ok]").onclick = () => close(true);
+    const cancelBtn = overlay.querySelector("[data-act=cancel]");
+    if (cancelBtn) cancelBtn.onclick = () => close(false);
+    overlay.onclick = () => close(false);
+    document.body.appendChild(overlay);
+  });
+}

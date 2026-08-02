@@ -1430,9 +1430,20 @@ tr.archived td {
   font-size: 12px;
   cursor: pointer;
 }
-.exp-clean:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.exp-clean:focus {
+  outline: none; /* 点击后不残留焦点轮廓 */
+}
+/* 悬停反馈只在真正支持悬停的设备生效（触屏点击后 hover 会滞留造成"按钮高亮"误解） */
+@media (hover: hover) {
+  .exp-clean:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+/* 键盘导航仍保留可见焦点（可访问性） */
+.exp-clean:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 .e-name {
   font-weight: 500;
@@ -1518,4 +1529,37 @@ tr.archived td {
 }
 .mini-btn.danger {
   color: var(--danger);
+}
+
+/* 程序自带确认/提示弹窗（utils.showDialog，替代原生 confirm/alert） */
+.hk-dialog {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  min-width: 300px;
+  max-width: 86vw;
+  cursor: default;
+}
+.hk-dialog-title {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+.hk-dialog-msg {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 0 0 20px;
+  white-space: pre-wrap;
+}
+.hk-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.hk-dialog-actions button {
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
 }
