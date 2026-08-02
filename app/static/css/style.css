@@ -1986,24 +1986,24 @@ tr.archived td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .add-head h2 {
   margin: 0;
 }
 .add-form {
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   align-items: stretch;
 }
 .form-group {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 .form-group legend {
   font-size: 13px;

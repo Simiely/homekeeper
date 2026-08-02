@@ -1,7 +1,7 @@
 // 添加/编辑物品页（#/add）：独立页面承载完整物品表单
 // 流程：顶栏 ＋ 进入添加模式；扫码/输入条码 → 自动回填曾录入的信息（保质期除外）→ 用户修改 → 保存
 // 编辑模式：物品页详情卡片点「编辑」→ #/add?id=N，表单回填，保存后返回物品页并选中该物品
-import { api } from "./api.js";
+import { api, imgUrl } from "./api.js";
 import { buildTreeOptions, escapeHtml, showDialog, viewError, viewLoading } from "./utils.js";
 
 // 状态字典：由后端 /api/meta 提供（单一数据源），此处为离线兜底值
@@ -27,7 +27,7 @@ export async function renderAdd() {
         <h2>${title}</h2>
         <button id="add-back" class="ghost" type="button">← 返回</button>
       </div>
-      <form id="item-form" class="card add-form">
+      <form id="item-form" class="card add-form" novalidate>
         <fieldset class="form-group">
           <legend>条码</legend>
           <div class="form-field full">
@@ -47,6 +47,16 @@ export async function renderAdd() {
             <input id="f-name" name="name" placeholder="如：生抽、雨伞" required />
           </div>
           <div class="form-field full">
+            <label for="f-location">存放位置 <em>*</em></label>
+            <select id="f-location" name="location_id" required>
+              ${buildTreeOptions(locations, "请选择位置")}
+            </select>
+          </div>
+          <div class="form-field full">
+            <label for="f-location-note">位置备注</label>
+            <input id="f-location-note" name="location_note" placeholder="如：第二层靠左" />
+          </div>
+          <div class="form-field full">
             <label for="f-description">描述</label>
             <input id="f-description" name="description" placeholder="用途 / 规格 / 备注" />
           </div>
@@ -60,17 +70,37 @@ export async function renderAdd() {
         </fieldset>
 
         <fieldset class="form-group">
-          <legend>存放位置</legend>
-          <div class="form-field full">
-            <label for="f-location">位置</label>
-            <select id="f-location" name="location_id">
-              ${buildTreeOptions(locations, "位置（可选）")}
-            </select>
+          <legend>照片 <em>*</em></legend>
+          <div class="photo-pick full" id="item-photo-pick">
+            <label class="photo-opt" id="item-photo-camera-label">
+              <input id="item-photo-camera" type="file" accept="image/*" capture="environment" />
+              <span>拍照</span>
+            </label>
+            <label class="photo-opt" id="item-photo-gallery-label">
+              <input id="item-photo-gallery" type="file" accept="image/*" />
+              <span>图库</span>
+            </label>
+            <p class="photo-hint">照片会自动压缩为 WebP（≤2000px）；新照片会追加到物品相册</p>
           </div>
-          <div class="form-field full">
-            <label for="f-location-note">位置备注</label>
-            <input id="f-location-note" name="location_note" placeholder="如：第二层靠左" />
+          <img id="item-photo-preview" class="photo-preview full hidden" alt="照片预览" />
+          <p class="form-hint">照片必须填写：拍照或从图库选择一张物品照片。</p>
+        </fieldset>
+
+        <fieldset class="form-group">
+          <legend>保质期</legend>
+          <div class="form-field">
+            <label for="f-shelf-days">保质期天数</label>
+            <input id="f-shelf-days" name="shelf_life_days" type="number" min="1" placeholder="如：180" title="填写保质期天数，自动算出到期时间" />
           </div>
+          <div class="form-field">
+            <label for="f-purchase">生产日期</label>
+            <input id="f-purchase" name="purchase_date" type="date" title="保质期按 生产日期 + 保质期天数 自动计算；未填则按今天" />
+          </div>
+          <div class="form-field">
+            <label for="f-expiry">保质期到期</label>
+            <input id="f-expiry" name="expiry_date" type="date" title="保质期到期日；也可直接填写" />
+          </div>
+          <p class="form-hint">填「保质期天数」+「生产日期」会自动算到期时间；或直接填「保质期到期」日。</p>
         </fieldset>
 
         <fieldset class="form-group">
@@ -92,36 +122,7 @@ export async function renderAdd() {
         </fieldset>
 
         <fieldset class="form-group">
-          <legend>保质期</legend>
-          <div class="form-field">
-            <label for="f-shelf-days">保质期天数</label>
-            <input id="f-shelf-days" name="shelf_life_days" type="number" min="1" placeholder="如：180" title="填写保质期天数，自动算出到期时间" />
-          </div>
-          <div class="form-field">
-            <label for="f-purchase">生产日期</label>
-            <input id="f-purchase" name="purchase_date" type="date" title="保质期按 生产日期 + 保质期天数 自动计算；未填则按今天" />
-          </div>
-          <div class="form-field">
-            <label for="f-expiry">保质期到期</label>
-            <input id="f-expiry" name="expiry_date" type="date" title="保质期到期日；也可直接填写" />
-          </div>
-          <p class="form-hint">填「保质期天数」+「生产日期」会自动算到期时间；或直接填「保质期到期」日。</p>
-        </fieldset>
-
-        <fieldset class="form-group">
           <legend>更多信息</legend>
-          <div class="form-field">
-            <label for="f-serial">序列号</label>
-            <input id="f-serial" name="serial_number" placeholder="序列号 / 编号" />
-          </div>
-          <div class="form-field">
-            <label for="f-price">价格（元）</label>
-            <input id="f-price" name="price" type="number" step="0.01" placeholder="如：29.90" />
-          </div>
-          <div class="form-field">
-            <label for="f-warranty">保修到期</label>
-            <input id="f-warranty" name="warranty_expiry" type="date" title="保修到期" />
-          </div>
           <div class="form-field full">
             <label for="f-tags">标签</label>
             <div id="tag-picker" class="tag-picker">
@@ -133,22 +134,18 @@ export async function renderAdd() {
               <button type="button" id="tag-new-add" class="ghost">＋ 新标签</button>
             </div>
           </div>
-        </fieldset>
-
-        <fieldset class="form-group">
-          <legend>照片（仅添加时可选）</legend>
-          <div class="photo-pick full" id="item-photo-pick">
-            <label class="photo-opt" id="item-photo-camera-label">
-              <input id="item-photo-camera" type="file" accept="image/*" capture="environment" />
-              <span>拍照</span>
-            </label>
-            <label class="photo-opt" id="item-photo-gallery-label">
-              <input id="item-photo-gallery" type="file" accept="image/*" />
-              <span>图库</span>
-            </label>
-            <p class="photo-hint">照片会自动压缩为 WebP（≤2000px）</p>
+          <div class="form-field">
+            <label for="f-price">价格（元）</label>
+            <input id="f-price" name="price" type="number" step="0.01" placeholder="如：29.90" />
           </div>
-          <img id="item-photo-preview" class="photo-preview full hidden" alt="照片预览" />
+          <div class="form-field">
+            <label for="f-warranty">保修到期</label>
+            <input id="f-warranty" name="warranty_expiry" type="date" title="保修到期" />
+          </div>
+          <div class="form-field">
+            <label for="f-serial">序列号</label>
+            <input id="f-serial" name="serial_number" placeholder="序列号 / 编号" />
+          </div>
         </fieldset>
 
         <div class="form-actions">
@@ -258,7 +255,6 @@ export async function renderAdd() {
 
     // ---- 照片选择 → 本地预览（仅新增模式；编辑已有物品补图走详情卡片）----
     const photoInputs = form.querySelectorAll("#item-photo-camera, #item-photo-gallery");
-    const photoPick = form.querySelector("#item-photo-pick");
     const photoPreview = form.querySelector("#item-photo-preview");
     let photoFile = null;
     const onPhotoPicked = (input) => {
@@ -330,11 +326,14 @@ export async function renderAdd() {
     el.querySelector("#add-back").onclick = goBack;
     el.querySelector("#add-cancel").onclick = goBack;
 
-    // ---- 编辑模式：回填表单（照片区域隐藏，编辑补图走详情卡片）----
+    // ---- 编辑模式：回填表单（照片区也显示——预览当前照片，可换新图；照片必填）----
+    let hasImage = false; // 编辑模式：物品是否已有照片
     if (editId) {
       try {
-        const item = await api.get(`/items/${editId}`);
-        photoPick?.classList.add("hidden");
+        const [item, imgs] = await Promise.all([
+          api.get(`/items/${editId}`),
+          api.get(`/items/${editId}/images`).catch(() => []),
+        ]);
         form.querySelector("[name=name]").value = item.name || "";
         form.querySelector("[name=description]").value = item.description || "";
         form.querySelector("[name=location_id]").value = item.location_id ?? "";
@@ -355,6 +354,13 @@ export async function renderAdd() {
           const chip = tagPicker.querySelector(`.tag-opt[data-tid="${t.id}"]`);
           if (chip) chip.classList.add("active");
         });
+        // 已有照片 → 预览首图（照片必填：编辑时已有图即满足；无图需补选）
+        if (imgs?.length) {
+          hasImage = true;
+          const im = imgs[0];
+          photoPreview.src = imgUrl(`/api/images/${im.item_id}/${im.filename}`);
+          photoPreview.classList.remove("hidden");
+        }
       } catch (e) {
         el.innerHTML = viewError(e.message);
         return;
@@ -365,6 +371,20 @@ export async function renderAdd() {
     form.onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
+      // 必填校验（程序弹窗，替代浏览器原生气泡）：名称 / 位置 / 照片
+      if (!fd.get("name")?.trim()) {
+        showDialog({ title: "请填写物品名称", message: "物品名称必须填写。", confirmText: "知道了" });
+        return;
+      }
+      const lid = fd.get("location_id");
+      if (!lid) {
+        showDialog({ title: "请选择位置", message: "物品的存放位置必须填写，方便以后找到它。", confirmText: "知道了" });
+        return;
+      }
+      if (!photoFile && !hasImage) {
+        showDialog({ title: "请添加照片", message: "物品照片必须填写：拍照或从图库选择一张。", confirmText: "知道了" });
+        return;
+      }
       const selectedTags = [...tagPicker.querySelectorAll(".tag-opt.active")].map((b) => b.dataset.tid);
       try {
         let itemId;
@@ -389,8 +409,8 @@ export async function renderAdd() {
             // 标签已存在则忽略
           }
         }
-        // 新增模式选了照片 → 创建成功后上传（后端自动压缩为 WebP ≤2000px）
-        if (!editId && photoFile) {
+        // 选了照片 → 创建/编辑保存后上传（后端自动压缩为 WebP ≤2000px；编辑选新图追加到相册）
+        if (photoFile) {
           const fdata = new FormData();
           fdata.append("file", photoFile);
           try {
@@ -398,7 +418,7 @@ export async function renderAdd() {
           } catch (err) {
             showDialog({
               title: "照片上传失败",
-              message: `物品已创建，但照片上传失败：${err.message}（可在物品页详情卡片补传）`,
+              message: `${editId ? "物品已保存，但" : "物品已创建，但"}照片上传失败：${err.message}（可在物品页详情卡片补传）`,
               confirmText: "知道了",
             });
           }
