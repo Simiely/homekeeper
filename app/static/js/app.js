@@ -148,11 +148,11 @@ window.syncHash = (params, opts = {}) => {
   }
 };
 
-// 导航按钮：写入 hash，由 hashchange 统一驱动渲染
+// 导航按钮：统一走 showView（写入 hash 历史 + 渲染），由 hashchange 驱动或直接渲染
 document.querySelectorAll("nav button[data-view]").forEach((btn) => {
   btn.onclick = (e) => {
     e.stopPropagation();
-    location.hash = `#/${btn.dataset.view}`;
+    showView(btn.dataset.view);
   };
 });
 

@@ -12,7 +12,7 @@
 //
 // 拖拽系统独立在 locations-drag.js（依赖注入解耦），本文件只做渲染与交互编排
 import { api } from "./api.js";
-import { buildLocTree, buildTreeOptions, escapeHtml, showDialog, viewError, viewLoading } from "./utils.js";
+import { buildLocTree, escapeHtml, showDialog, viewError, viewLoading } from "./utils.js";
 import { attachDrag, consumeSuppress, initDrag } from "./locations-drag.js";
 
 // 编辑模式（拖拽调层级）；默认关闭，点击卡片 = 改名
@@ -95,10 +95,9 @@ export async function renderLocations() {
       }
     }
 
-    // 聚焦高亮（仅首页常用位置跳转的临时标记）：折叠无关分支 + 高亮目标
-    const focusId = Number(window.__focusLocId || 0);
+    // 聚焦高亮（首页常用位置跳转的临时标记 ?focus=id）：折叠无关分支 + 高亮目标
+    const focusId = Number(window.__viewParams?.get("focus") || 0);
     if (focusId) {
-      window.__focusLocId = null; // 一次性消费
       const pmap = Object.fromEntries(locs.map((l) => [l.id, l.parent_id]));
       const chain = new Set([focusId]);
       let cur = pmap[focusId];
@@ -121,6 +120,11 @@ export async function renderLocations() {
         target.scrollIntoView({ block: "center" });
         setTimeout(() => target.classList.remove("loc-focused"), 2600);
       }
+      // 一次性消费：从 URL 移除 focus 参数（replaceState，不产生历史）
+      const q = new URLSearchParams(location.hash.split("?")[1] || "");
+      q.delete("focus");
+      const qs = q.toString();
+      history.replaceState(null, "", `#/locations${qs ? "?" + qs : ""}`);
     }
 
     // 卡片操作（事件委托）：添加子位置 / 删除 / 非编辑模式点击展开物品 / ▸ 展开物品

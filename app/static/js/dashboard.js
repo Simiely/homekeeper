@@ -239,8 +239,8 @@ export async function renderDashboard() {
   // 常用位置 → 位置页（聚焦标记 + URL 展开参数：折叠无关分支并高亮目标）
   el.querySelectorAll(".hot-loc").forEach((b) => {
     b.onclick = () => {
-      window.__focusLocId = Number(b.dataset.lid);
-      goView("locations", { open: Number(b.dataset.lid) });
+      const lid = Number(b.dataset.lid);
+      goView("locations", { open: lid, focus: lid }); // focus 一次性：位置页聚焦高亮后从 URL 移除
     };
   });
 
