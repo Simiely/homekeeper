@@ -71,8 +71,10 @@ export async function renderLocations() {
     // 渲染后若仍在编辑模式，恢复常驻提示（DOM 重建后 #loc-status 是新的）
     if (editMode && editHintText) showStatus(editHintText, false, true);
 
-    // 从「归处」首页常用位置跳转而来：折叠无关分支，只展开/高亮目标位置
-    const focusId = Number(window.__focusLocId || 0);
+    // 聚焦高亮：优先读 URL 参数 ?open=id（hash 路由），兼容旧版 __focusLocId
+    const focusId =
+      Number(window.__viewParams?.get("open") || 0) ||
+      Number(window.__focusLocId || 0);
     if (focusId) {
       window.__focusLocId = null; // 一次性消费
       const pmap = Object.fromEntries(locs.map((l) => [l.id, l.parent_id]));
@@ -151,6 +153,9 @@ function toggleItems(card) {
   const willShow = !card.classList.contains("expanded");
   itemsEl.style.display = willShow ? "flex" : "none";
   card.classList.toggle("expanded", willShow);
+  // URL 同步：展开时记录 ?open=id，收起时清除（hash 路由，可刷新保留/分享）
+  const id = Number(card.dataset.id);
+  window.syncHash?.(willShow && id ? { open: id } : {});
 }
 
 // ---- 方块卡片渲染（递归）----

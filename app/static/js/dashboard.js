@@ -43,9 +43,8 @@ function locPath(id, locations) {
   return parts.join(" > ");
 }
 
-function goView(name) {
-  const btn = document.querySelector(`nav button[data-view="${name}"]`);
-  window.showView?.(name, btn);
+function goView(name, params) {
+  window.showView?.(name, params || {});
 }
 
 export async function renderDashboard() {
@@ -145,10 +144,12 @@ export async function renderDashboard() {
     if (!kw) {
       resultsEl.classList.add("hidden");
       resultsEl.innerHTML = "";
+      window.syncHash?.({}); // 清空搜索参数
       return;
     }
     pushRecent(kw);
     renderRecent();
+    window.syncHash?.({ q: kw }); // 搜索词同步到 URL（replaceState，可分享/刷新保留）
     resultsEl.innerHTML = '<p class="muted">搜索中…</p>';
     resultsEl.classList.remove("hidden");
     try {
@@ -172,11 +173,12 @@ export async function renderDashboard() {
             .join("") +
           "</ul>"
         : `<p class="muted">没有找到「${escapeHtml(kw)}」，换个词试试？</p>`;
-      // 点击位置路径 → 跳到位置页
+      // 点击位置路径 → 跳到位置页并展开该位置
       resultsEl.querySelectorAll(".r-loc[data-lid]").forEach((span) => {
         span.onclick = (e) => {
           e.stopPropagation();
-          goView("locations");
+          const lid = Number(span.dataset.lid);
+          goView("locations", lid ? { open: lid } : {});
         };
       });
     } catch (e) {
@@ -264,13 +266,17 @@ export async function renderDashboard() {
   el.querySelector("#exp-discard").onclick = () => runBatch("delete");
   el.querySelector("#exp-archive").onclick = () => runBatch("archive");
 
-  // 常用位置 → 位置页（携带目标位置 id，位置页只展开并高亮该位置）
+  // 常用位置 → 位置页（URL 携带目标位置 id，位置页只展开并高亮该位置）
   el.querySelectorAll(".hot-loc").forEach((b) => {
-    b.onclick = () => {
-      window.__focusLocId = Number(b.dataset.lid);
-      goView("locations");
-    };
+    b.onclick = () => goView("locations", { open: Number(b.dataset.lid) });
   });
+
+  // 从 URL 恢复搜索词（刷新 #/dashboard?q=xx 或浏览器后退回来）
+  const urlQ = window.__viewParams?.get("q") || "";
+  if (urlQ) {
+    qEl.value = urlQ;
+    doSearch(urlQ);
+  }
 
   renderRecent();
   loadExpiring();

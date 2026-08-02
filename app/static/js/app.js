@@ -194,11 +194,23 @@ settingsToggle?.addEventListener("click", (e) => {
 // 点击页面其他区域时收起下拉
 document.addEventListener("click", closeSettingsMenu);
 
-// 统一视图切换：处理高亮（含父项联动）与视图容器显示
-function showView(name, btn) {
+// ========== Hash 路由：每个视图有独立 URL（#/dashboard、#/items?kw=…），支持浏览器前进/后退 ==========
+
+// 解析当前 hash → { view, params }
+function parseHash() {
+  const raw = location.hash.replace(/^#\/?/, "");
+  const [path, qs] = raw.split("?");
+  const name = (path || "dashboard").split("/")[0];
+  const params = new URLSearchParams(qs || "");
+  return { view: views[name] ? name : "dashboard", params };
+}
+
+// 应用视图：高亮（含父项联动）、显示容器、调用渲染模块
+function applyView(name, params) {
   document.querySelectorAll("nav button[data-view]").forEach((b) => b.classList.remove("active"));
   settingsToggle?.classList.remove("active"); // 父项高亮由子项联动决定，切换前先清除
   closeSettingsMenu();
+  const btn = document.querySelector(`nav button[data-view="${name}"]`);
   if (btn) {
     btn.classList.add("active");
     // 子项激活时父项同步高亮（data-parent 指向父按钮 id）
@@ -210,17 +222,49 @@ function showView(name, btn) {
   }
   document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
   document.getElementById(`view-${name}`).classList.remove("hidden");
+  // 供各视图模块读取 URL 参数（如 ?q=搜索词、?open=展开位置）
+  window.__viewParams = params;
   views[name]();
 }
 
-// 供其他模块（如首页跳转位置页）调用
-window.showView = showView;
+function onHashChange() {
+  const { view, params } = parseHash();
+  applyView(view, params);
+}
 
+// 跨视图跳转（push 历史，浏览器后退可返回上一视图）
+// 用法：window.showView("locations", { open: 4 })
+window.showView = (name, params = {}) => {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v != null && v !== "") q.set(k, v);
+  }
+  const qs = q.toString();
+  location.hash = `#/${name}${qs ? "?" + qs : ""}`;
+};
+
+// 视图内状态同步（replaceState：不产生历史、不触发 hashchange）
+// 首页搜索词 / 位置展开等变化时调用，URL 实时同步、可分享、刷新保留
+window.syncHash = (params) => {
+  const { view } = parseHash();
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v != null && v !== "") q.set(k, v);
+  }
+  const qs = q.toString();
+  history.replaceState(null, "", `#/${view}${qs ? "?" + qs : ""}`);
+};
+
+// 导航按钮：写入 hash，由 hashchange 统一驱动渲染
 document.querySelectorAll("nav button[data-view]").forEach((btn) => {
   btn.onclick = (e) => {
     e.stopPropagation();
-    showView(btn.dataset.view, btn);
+    location.hash = `#/${btn.dataset.view}`;
   };
 });
 
-views.dashboard();
+// 浏览器前进/后退 → hash 变化 → 渲染对应视图
+window.addEventListener("hashchange", onHashChange);
+
+// 初始渲染：读当前 hash（如刷新在 #/items 则回到物品页），默认归处
+onHashChange();

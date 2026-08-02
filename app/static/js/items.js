@@ -274,6 +274,20 @@ export async function renderItems() {
     let editingItemId = null;
     let currentPage = 1;
 
+    // 从 URL 恢复筛选条件（刷新 #/items?kw=xx 或浏览器后退回来）
+    const urlP = window.__viewParams;
+    if (urlP) {
+      const setVal = (id, v) => {
+        if (v != null && v !== "") el.querySelector(id).value = v;
+      };
+      setVal("#f-keyword", urlP.get("kw"));
+      setVal("#f-status", urlP.get("status_filter"));
+      setVal("#f-category", urlP.get("category_id"));
+      setVal("#f-location", urlP.get("location_id"));
+      setVal("#f-tag", urlP.get("tag_id"));
+      if (urlP.get("show_archived")) el.querySelector("#f-archived").checked = true;
+    }
+
     // 初次加载列表
     loadItems();
 
@@ -356,6 +370,15 @@ export async function renderItems() {
       if (el.querySelector("#f-archived").checked) params.set("show_archived", "true");
       params.set("page", currentPage);
       params.set("page_size", "20");
+      // 筛选条件同步到 URL（hash 路由：刷新保留、可分享；不含分页）
+      window.syncHash?.({
+        kw: kw || undefined,
+        status_filter: st || undefined,
+        category_id: ca || undefined,
+        location_id: lo || undefined,
+        tag_id: ta || undefined,
+        show_archived: el.querySelector("#f-archived").checked ? "1" : undefined,
+      });
       const qs = params.toString();
 
       let data;
