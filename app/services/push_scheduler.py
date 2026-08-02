@@ -74,7 +74,13 @@ scheduler = BackgroundScheduler()
 
 def start_scheduler():
     """注册并启动过期扫描任务（由 services/scheduler.py 统一调用）。"""
+    global scheduler
     get_vapid()  # 预热加载 VAPID 密钥
+    if scheduler.running and scheduler.get_job("expiry_check"):
+        return
+    if not scheduler.running:
+        # shutdown 后的 APScheduler 实例不能可靠重启 → 重建新实例
+        scheduler = BackgroundScheduler()
     if scheduler.get_job("expiry_check"):
         return
     scheduler.add_job(

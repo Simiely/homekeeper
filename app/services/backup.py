@@ -9,7 +9,6 @@ import sqlite3
 from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import HTTPException
 
 from app.config import DATA_DIR, settings
 from app.database import engine, init_db
@@ -19,6 +18,14 @@ logger = logging.getLogger("homekeeper.backup")
 # [local-dev] 原仓库为 Path("/app/data/backups") / Path("/app/data/homekeeper.db")，Docker 内路径
 BACKUP_DIR = DATA_DIR / "backups"
 DB_PATH = DATA_DIR / "homekeeper.db"
+
+
+class BackupNotFoundError(Exception):
+    """备份文件不存在。"""
+
+
+class BackupCorruptError(Exception):
+    """备份文件损坏或无法打开。"""
 
 
 # ========== 备份逻辑 ==========
@@ -67,7 +74,7 @@ def restore_backup(filename: str) -> None:
     """
     backup = BACKUP_DIR / filename
     if not backup.exists() or not backup.name.startswith("homekeeper_"):
-        raise HTTPException(status_code=404, detail="备份文件不存在")
+        raise BackupNotFoundError(filename)
 
     logger.warning("正在从 %s 恢复数据库...", filename)
 
@@ -85,10 +92,10 @@ def restore_backup(filename: str) -> None:
         conn.close()
         if not row or row[0] != "ok":
             tmp.unlink(missing_ok=True)
-            raise HTTPException(status_code=400, detail="备份文件损坏，恢复已中止")
+            raise BackupCorruptError(filename)
     except sqlite3.Error as e:
         tmp.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail=f"备份文件无法打开：{e}")
+        raise BackupCorruptError(f"{filename}: {e}") from e
 
     tmp.replace(DB_PATH)
 
@@ -104,6 +111,12 @@ scheduler = BackgroundScheduler()
 
 def start_scheduler():
     """注册并启动自动备份任务（由 services/scheduler.py 统一调用）。"""
+    global scheduler
+    if scheduler.running and scheduler.get_job("db_backup"):
+        return
+    if not scheduler.running:
+        # shutdown 后的 APScheduler 实例不能可靠重启 → 重建新实例
+        scheduler = BackgroundScheduler()
     if scheduler.get_job("db_backup"):
         return
     interval = max(settings.backup_interval_hours, 1)
@@ -112,7 +125,6 @@ def start_scheduler():
         "interval",
         hours=interval,
         id="db_backup",
-        next_run_time=None,
     )
     scheduler.start()
     logger.info("备份调度器已启动（每 %s 小时）", interval)

@@ -30,6 +30,8 @@ from app.routers import (
 )
 from app.services import audit  # noqa: F401 — 激活操作日志监听器
 from app.services import scheduler as scheduler_mgr
+from app.services.backup import BackupCorruptError, BackupNotFoundError
+from app.services.item_service import ItemNotFoundError, TagNotFoundError
 
 logger = logging.getLogger("homekeeper.main")
 
@@ -82,7 +84,7 @@ def _seed_admin():
         db.close()
 
 
-app = FastAPI(title="拾光集", version="0.9.3", lifespan=lifespan)
+app = FastAPI(title="拾光集", version="0.9.6", lifespan=lifespan)
 
 
 app.add_middleware(
@@ -91,6 +93,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# 领域异常 → HTTP 映射（全局统一，消除各 router 重复 try/except 映射）
+@app.exception_handler(ItemNotFoundError)
+async def item_not_found_handler(request: Request, exc: ItemNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": "物品不存在"})
+
+
+@app.exception_handler(TagNotFoundError)
+async def tag_not_found_handler(request: Request, exc: TagNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": "标签不存在"})
+
+
+@app.exception_handler(BackupNotFoundError)
+async def backup_not_found_handler(request: Request, exc: BackupNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": "备份文件不存在"})
+
+
+@app.exception_handler(BackupCorruptError)
+async def backup_corrupt_handler(request: Request, exc: BackupCorruptError):
+    return JSONResponse(status_code=400, content={"detail": f"备份文件损坏或无法打开：{exc}"})
 
 
 @app.exception_handler(Exception)
