@@ -6,7 +6,7 @@ HTTP 端点见 routers/push.py，调度器的统一启停见 services/scheduler.
 import json
 import logging
 from base64 import urlsafe_b64decode, urlsafe_b64encode
-from datetime import date, timedelta
+from datetime import date
 from urllib.parse import urlparse
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -17,9 +17,9 @@ from sqlalchemy.orm import Session
 
 from app.config import DATA_DIR
 from app.database import SessionLocal
-from app.models.item import Item
 from app.models.push_subscription import PushSubscription
 from app.models.user import User
+from app.services.expiry_query import get_expiring_items
 
 logger = logging.getLogger("homekeeper.push")
 
@@ -148,32 +148,10 @@ def _check_all_users():
         db = SessionLocal()
         users = db.query(User).all()
         today = date.today()
-        warn_date = today + timedelta(days=EXPIRY_WARN_DAYS)
-
         for user in users:
-            expiring = (
-                db.query(Item)
-                .filter(
-                    Item.owner_id == user.id,
-                    Item.archived == False,  # noqa: E712
-                    Item.expiry_date.isnot(None),
-                    Item.expiry_date <= warn_date,
-                    Item.expiry_date >= today,
-                )
-                .order_by(Item.expiry_date)
-                .all()
-            )
-            warranty = (
-                db.query(Item)
-                .filter(
-                    Item.owner_id == user.id,
-                    Item.archived == False,  # noqa: E712
-                    Item.warranty_expiry.isnot(None),
-                    Item.warranty_expiry <= warn_date,
-                    Item.warranty_expiry >= today,
-                )
-                .order_by(Item.warranty_expiry)
-                .all()
+            # 共用 expiry_query（与首页 dashboard 同一套过滤：排除已清理/已丢弃终态）
+            expiring, warranty = get_expiring_items(
+                db, user, EXPIRY_WARN_DAYS, include_expired=False, exclude_terminal=True
             )
             if not expiring and not warranty:
                 continue

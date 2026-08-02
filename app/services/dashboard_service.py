@@ -1,12 +1,14 @@
 """仪表盘统计业务：SQL 聚合概览 + 即将过期/保修到期提醒。"""
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.category import Category
 from app.models.item import Item
+from app.models.status import status_value
 from app.models.user import User
+from app.services.expiry_query import get_expiring_items
 
 
 def get_summary(db: Session, user: User) -> dict:
@@ -14,7 +16,7 @@ def get_summary(db: Session, user: User) -> dict:
     uid = user.id
     total = db.query(func.count(Item.id)).filter(Item.owner_id == uid).scalar() or 0
     by_status = {
-        (s.value if hasattr(s, "value") else str(s)): c
+        status_value(s): c
         for s, c in db.query(Item.status, func.count(Item.id))
         .filter(Item.owner_id == uid)
         .group_by(Item.status)
@@ -56,37 +58,13 @@ def get_summary(db: Session, user: User) -> dict:
 
 
 def get_expiring(db: Session, user: User, days: int = 30) -> dict:
-    """临期物品 + 保修到期列表。
+    """临期物品 + 保修到期列表（共用 expiry_query，与推送扫描同一套过滤）。
 
     - 排除已归档与已处理终态（已清理/已丢弃）
     - 每条返回 days_left（负数=已过期）与 expired 标记，前端分段展示
     """
     today = date.today()
-    threshold = today + timedelta(days=days)
-    items = (
-        db.query(Item)
-        .filter(
-            Item.owner_id == user.id,
-            Item.archived == False,  # noqa: E712
-            Item.status.notin_(["已清理", "已丢弃"]),
-            Item.expiry_date.isnot(None),
-            Item.expiry_date <= threshold,
-        )
-        .order_by(Item.expiry_date)
-        .all()
-    )
-    warranty = (
-        db.query(Item)
-        .filter(
-            Item.owner_id == user.id,
-            Item.archived == False,  # noqa: E712
-            Item.status.notin_(["已清理", "已丢弃"]),
-            Item.warranty_expiry.isnot(None),
-            Item.warranty_expiry <= threshold,
-        )
-        .order_by(Item.warranty_expiry)
-        .all()
-    )
+    items, warranty = get_expiring_items(db, user, days, include_expired=True)
 
     def _serialize(it: Item, date_attr: str) -> dict:
         d = getattr(it, date_attr)
@@ -99,7 +77,7 @@ def get_expiring(db: Session, user: User, days: int = 30) -> dict:
             "location_id": it.location_id,
             "quantity": it.quantity,
             "unit": it.unit,
-            "status": it.status.value if hasattr(it.status, "value") else str(it.status),
+            "status": status_value(it.status),
         }
 
     return {

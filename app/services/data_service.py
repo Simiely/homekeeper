@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.category import Category
 from app.models.item import Item
+from app.models.status import ItemStatus, status_value
 from app.models.item_tag import item_tag_assoc
 from app.models.location import Location
 from app.models.tag import Tag
@@ -43,7 +44,7 @@ def _row_for_item(item: Item, loc_map: dict, cat_map: dict, tag_map: dict) -> li
         item.description,
         str(item.quantity or ""),
         item.unit or "",
-        item.status.value if hasattr(item.status, "value") else str(item.status),
+        status_value(item.status),
         item.expiry_date.isoformat() if item.expiry_date else "",
         item.purchase_date.isoformat() if item.purchase_date else "",
         loc,
@@ -198,7 +199,7 @@ def import_items_from_csv(db: Session, user: User, content: bytes, filename: str
                     description=row.get("description", "").strip(),
                     quantity=quantity,
                     unit=row.get("unit", "个").strip() or "个",
-                    status=row.get("status", "在库").strip() or "在库",
+                    status=row.get("status", ItemStatus.IN_STOCK.value).strip() or ItemStatus.IN_STOCK.value,
                     expiry_date=expiry,
                     purchase_date=purchase,
                     location_id=location_id,
