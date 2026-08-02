@@ -62,6 +62,11 @@ export async function renderItems() {
           <option value="">标签…</option>
           ${tags.map((t) => `<option value="${t.id}" style="color:${t.color}">${escapeHtml(t.name)}</option>`).join("")}
         </select>
+        <label class="photo-pick" id="item-photo-pick">
+          <input id="item-photo" type="file" accept="image/*" />
+          <span>＋ 添加照片（可选，自动压缩为 WebP）</span>
+        </label>
+        <img id="item-photo-preview" class="photo-preview hidden" alt="照片预览" />
         <button type="submit">添加</button>
       </form>
 

@@ -1545,3 +1545,32 @@ tr.archived td {
   padding: 8px 16px;
   border-radius: 8px;
 }
+
+/* 添加物品：照片选择 + 预览 */
+.photo-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  background: var(--panel-2);
+}
+.photo-pick:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.photo-pick input[type="file"] {
+  display: none;
+}
+.photo-preview {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
