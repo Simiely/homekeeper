@@ -253,8 +253,8 @@ function onDragStart(e) {
 
 // 拖拽边缘自动滚动：触屏拖拽时手指移到视口上/下边缘附近，页面跟随滚动，
 // 使超出当前屏幕的目标位置也能被拖到（拖拽期间 touch-action 已锁定，浏览器不会自行滚动）
-const DRAG_EDGE = 60; // 距视口边缘多少 px 触发滚动
-const DRAG_SCROLL_STEP = 14; // 每帧（约 16ms）滚动像素
+const DRAG_EDGE = 80; // 距视口边缘多少 px 触发滚动（更大=更早触发）
+const DRAG_SCROLL_STEP = 26; // 每帧（约 16ms）滚动像素（越快滚动越跟手）
 let dragScrollTimer = null;
 
 function autoScroll(clientY) {
