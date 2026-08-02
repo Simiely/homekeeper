@@ -42,6 +42,7 @@ export function initForm(ctx) {
             if (codes.length) {
               barcodeInput.value = codes[0].rawValue;
               stop();
+              fillFromBarcode(barcodeInput.value); // 扫码后自动回填曾录入的信息
             }
           } catch {
             // 帧检测失败忽略，继续
@@ -54,6 +55,39 @@ export function initForm(ctx) {
       }
     };
   }
+
+  // ---- 扫码记忆：条码曾录入过 → 自动回填表单（名称/单位/位置等，不含保质期）----
+  const fillFromBarcode = async (barcode) => {
+    if (!barcode) return;
+    try {
+      const res = await api.get(`/items?barcode=${encodeURIComponent(barcode)}&show_archived=true`);
+      const tpl = res.items?.[0];
+      if (!tpl) return;
+      form.querySelector("[name=name]").value = tpl.name || "";
+      form.querySelector("[name=description]").value = tpl.description || "";
+      form.querySelector("[name=location_id]").value = tpl.location_id ?? "";
+      form.querySelector("[name=location_note]").value = tpl.location_note || "";
+      form.querySelector("[name=category_id]").value = tpl.category_id ?? "";
+      form.querySelector("[name=quantity]").value = tpl.quantity ?? 1;
+      form.querySelector("[name=unit]").value = tpl.unit || "个";
+      form.querySelector("[name=status]").value = tpl.status || "在库";
+      form.querySelector("[name=serial_number]").value = tpl.serial_number || "";
+      form.querySelector("[name=price]").value = tpl.price ?? "";
+      // 保质期相关字段清空（用户明确要求：回填时去掉保质期）
+      if (shelfInput) shelfInput.value = "";
+      if (expiryInput) expiryInput.value = "";
+      if (purchaseInput) purchaseInput.value = "";
+      showDialog({
+        title: "已自动填充",
+        message: `条码 ${barcode} 曾录入过「${tpl.name}」，已自动填好（保质期除外），确认后保存。`,
+        confirmText: "知道了",
+      });
+    } catch {
+      // 查询失败静默（不影响手动输入）
+    }
+  };
+  // 手动输入 / 扫码枪输入条码（回车或失焦）也触发回填
+  barcodeInput?.addEventListener("change", () => fillFromBarcode(barcodeInput.value));
 
   // ---- 保质期天数 → 自动计算到期时间（购买日期 + 天数；无购买日期按今天）----
   const shelfInput = form.querySelector("[name=shelf_life_days]");
@@ -161,27 +195,7 @@ export function initForm(ctx) {
           await api.del(`/items/${itemId}/tags/${tid}`);
         }
       } else {
-        // 新增：条形码查重——同条码已有物品时提供「数量+1」快速录入
-        const barcode = buildPayload(fd, ctx.statusOptions?.[0]).barcode;
-        if (barcode) {
-          const dup = await api.get(`/items?barcode=${encodeURIComponent(barcode)}`);
-          if (dup.items?.length) {
-            const exist = dup.items[0];
-            const choice = await showDialog({
-              title: "该条码已有物品",
-              message: `「${exist.name}」（数量 ${exist.quantity}）。重复条码通常是同款物品，要累加数量还是新建一条？`,
-              confirmText: "数量 +1",
-              cancelText: "仍新建",
-              danger: false,
-            });
-            if (choice) {
-              await api.put(`/items/${exist.id}`, { quantity: (exist.quantity || 0) + 1 });
-              cancelEdit();
-              ctx.loadItems();
-              return;
-            }
-          }
-        }
+        // 新增：扫码/输入条码时已自动回填曾录入的信息（fillFromBarcode），这里直接按表单保存
         const created = await api.post("/items", buildPayload(fd, ctx.statusOptions?.[0]));
         itemId = created.id;
       }
