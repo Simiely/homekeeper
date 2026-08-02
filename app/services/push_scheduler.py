@@ -82,7 +82,6 @@ def start_scheduler():
         "interval",
         hours=SCAN_INTERVAL_HOURS,
         id="expiry_check",
-        next_run_time=None,
     )
     scheduler.start()
     logger.info("推送调度器已启动（每 %s 小时扫描）", SCAN_INTERVAL_HOURS)
@@ -114,6 +113,7 @@ def _check_all_users():
                 db.query(Item)
                 .filter(
                     Item.owner_id == user.id,
+                    Item.archived == False,  # noqa: E712
                     Item.expiry_date.isnot(None),
                     Item.expiry_date <= warn_date,
                     Item.expiry_date >= today,
@@ -121,20 +121,35 @@ def _check_all_users():
                 .order_by(Item.expiry_date)
                 .all()
             )
-            if not expiring:
+            warranty = (
+                db.query(Item)
+                .filter(
+                    Item.owner_id == user.id,
+                    Item.archived == False,  # noqa: E712
+                    Item.warranty_expiry.isnot(None),
+                    Item.warranty_expiry <= warn_date,
+                    Item.warranty_expiry >= today,
+                )
+                .order_by(Item.warranty_expiry)
+                .all()
+            )
+            if not expiring and not warranty:
                 continue
 
-            items_text = " · ".join(
-                f"{it.name}（{(it.expiry_date - today).days}天）"
-                for it in expiring[:5]
-            )
-            if len(expiring) > 5:
-                items_text += f" · 还有{len(expiring)-5}件"
+            parts = [f"{it.name}（{(it.expiry_date - today).days}天）" for it in expiring[:5]]
+            parts += [
+                f"{it.name} 保修（{(it.warranty_expiry - today).days}天）"
+                for it in warranty[:3]
+            ]
+            total = len(expiring) + len(warranty)
+            items_text = " · ".join(parts)
+            if total > 8:
+                items_text += f" · 还有{total - 8}件"
 
             payload = json.dumps(
                 {
                     "title": "🏠 拾光集",
-                    "body": f"{len(expiring)} 件物品即将过期：{items_text}",
+                    "body": f"{total} 件物品待处理：{items_text}",
                 }
             )
 

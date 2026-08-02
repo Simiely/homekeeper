@@ -56,13 +56,18 @@ def get_summary(db: Session, user: User) -> dict:
 
 
 def get_expiring(db: Session, user: User, days: int = 30) -> dict:
-    """临期物品 + 保修到期列表。"""
+    """临期物品 + 保修到期列表。
+
+    - 排除已归档
+    - 每条返回 days_left（负数=已过期）与 expired 标记，前端分段展示
+    """
     today = date.today()
     threshold = today + timedelta(days=days)
     items = (
         db.query(Item)
         .filter(
             Item.owner_id == user.id,
+            Item.archived == False,  # noqa: E712
             Item.expiry_date.isnot(None),
             Item.expiry_date <= threshold,
         )
@@ -73,28 +78,29 @@ def get_expiring(db: Session, user: User, days: int = 30) -> dict:
         db.query(Item)
         .filter(
             Item.owner_id == user.id,
+            Item.archived == False,  # noqa: E712
             Item.warranty_expiry.isnot(None),
             Item.warranty_expiry <= threshold,
         )
         .order_by(Item.warranty_expiry)
         .all()
     )
+
+    def _serialize(it: Item, date_attr: str) -> dict:
+        d = getattr(it, date_attr)
+        return {
+            "id": it.id,
+            "name": it.name,
+            "expiry_date": d.isoformat() if d else None,
+            "days_left": (d - today).days if d else None,
+            "expired": d is not None and d < today,
+            "location_id": it.location_id,
+            "quantity": it.quantity,
+            "unit": it.unit,
+            "status": it.status.value if hasattr(it.status, "value") else str(it.status),
+        }
+
     return {
-        "expiring": [
-            {
-                "id": it.id,
-                "name": it.name,
-                "expiry_date": it.expiry_date.isoformat() if it.expiry_date else None,
-            }
-            for it in items
-        ],
-        "warranty_expiring": [
-            {
-                "id": it.id,
-                "name": it.name,
-                "serial_number": it.serial_number,
-                "warranty_expiry": it.warranty_expiry.isoformat() if it.warranty_expiry else None,
-            }
-            for it in warranty
-        ],
+        "expiring": [_serialize(it, "expiry_date") for it in items],
+        "warranty_expiring": [_serialize(it, "warranty_expiry") for it in warranty],
     }

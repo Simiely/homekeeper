@@ -213,6 +213,9 @@ function showView(name, btn) {
   views[name]();
 }
 
+// 供其他模块（如首页跳转位置页）调用
+window.showView = showView;
+
 document.querySelectorAll("nav button[data-view]").forEach((btn) => {
   btn.onclick = (e) => {
     e.stopPropagation();

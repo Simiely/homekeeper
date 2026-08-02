@@ -1266,3 +1266,232 @@ tr.archived td {
     flex-wrap: wrap;
   }
 }
+
+/* ===== 首页：搜索中心 + 临期清理工作台 ===== */
+.home-search input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+.home-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.home-recent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 2px;
+}
+.recent-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: 2px;
+}
+.recent-chip {
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 12px;
+}
+.recent-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.home-results {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.result-count {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 10px 2px 4px;
+}
+.result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: var(--panel);
+}
+.r-name {
+  font-weight: 500;
+  font-size: 14px;
+}
+.r-loc {
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.r-loc:hover {
+  text-decoration: underline;
+}
+.r-status {
+  font-size: 12px;
+  margin-left: auto;
+}
+.badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.badge-warn {
+  background: rgba(245, 185, 66, 0.15);
+  color: #f5b942;
+  border: 1px solid rgba(245, 185, 66, 0.4);
+}
+.badge-exp {
+  background: rgba(255, 107, 107, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(255, 107, 107, 0.4);
+}
+
+.home-exp {
+  margin-top: 24px;
+}
+.home-exp h3,
+.home-hot h3 {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.exp-days {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.exp-days input {
+  width: 56px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+}
+.exp-h {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 14px 0 6px;
+}
+.exp-h-red {
+  color: var(--danger);
+}
+.exp-h-yellow {
+  color: #f5b942;
+}
+.exp-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  background: var(--panel);
+  cursor: pointer;
+}
+.exp-red {
+  border-color: rgba(255, 107, 107, 0.45);
+}
+.exp-yellow {
+  border-color: rgba(245, 185, 66, 0.4);
+}
+.exp-item input {
+  flex: 0 0 auto;
+}
+.e-name {
+  font-weight: 500;
+  font-size: 14px;
+}
+.e-loc {
+  font-size: 12px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.e-days {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.exp-red .e-days {
+  color: var(--danger);
+}
+.exp-yellow .e-days {
+  color: #f5b942;
+}
+.exp-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.exp-actions button {
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+.exp-actions .danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.home-hot {
+  margin-top: 24px;
+}
+.home-hot-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.hot-loc {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.hot-loc span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.hot-loc:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.home-stats {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}

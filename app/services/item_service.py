@@ -5,12 +5,14 @@ from pathlib import Path
 
 import qrcode
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.config import DATA_DIR, settings
+from app.models.category import Category
 from app.models.item import Item
 from app.models.item_log import ItemLog
 from app.models.item_tag import item_tag_assoc
+from app.models.location import Location
 from app.models.status import ItemStatus
 from app.models.tag import Tag
 from app.models.user import User
@@ -52,12 +54,28 @@ def list_items(
 ) -> PaginatedItems:
     q = db.query(Item).filter(Item.owner_id == user.id)
     if keyword:
-        q = q.filter(
-            or_(
-                Item.name.contains(keyword),
-                Item.description.contains(keyword),
-                Item.location_note.contains(keyword),
+        # 关键词命中：物品自身字段 + 位置名 + 分类名 + 标签名（join 关联表）
+        loc_alias = aliased(Location)
+        cat_alias = aliased(Category)
+        tag_alias = aliased(Tag)
+        assoc_alias = item_tag_assoc.alias("kw_assoc")
+        q = (
+            q.outerjoin(loc_alias, Item.location_id == loc_alias.id)
+            .outerjoin(cat_alias, Item.category_id == cat_alias.id)
+            .outerjoin(assoc_alias, assoc_alias.c.item_id == Item.id)
+            .outerjoin(tag_alias, assoc_alias.c.tag_id == tag_alias.id)
+            .filter(
+                or_(
+                    Item.name.contains(keyword),
+                    Item.description.contains(keyword),
+                    Item.location_note.contains(keyword),
+                    Item.serial_number.contains(keyword),
+                    loc_alias.name.contains(keyword),
+                    cat_alias.name.contains(keyword),
+                    tag_alias.name.contains(keyword),
+                )
             )
+            .distinct()
         )
     if status_filter is not None:
         q = q.filter(Item.status == status_filter)
