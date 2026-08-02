@@ -71,6 +71,37 @@ export async function renderLocations() {
     // 渲染后若仍在编辑模式，恢复常驻提示（DOM 重建后 #loc-status 是新的）
     if (editMode && editHintText) showStatus(editHintText, false, true);
 
+    // 从「归处」首页常用位置跳转而来：折叠无关分支，只展开/高亮目标位置
+    const focusId = Number(window.__focusLocId || 0);
+    if (focusId) {
+      window.__focusLocId = null; // 一次性消费
+      const pmap = Object.fromEntries(locs.map((l) => [l.id, l.parent_id]));
+      const chain = new Set([focusId]);
+      let cur = pmap[focusId];
+      while (cur) {
+        chain.add(cur);
+        cur = pmap[cur];
+      }
+      // 折叠不在目标祖先链上的所有分支的子级
+      treeEl.querySelectorAll(".loc-card").forEach((card) => {
+        const id = Number(card.dataset.id);
+        if (!chain.has(id)) {
+          const ch = card.querySelector(":scope > .loc-children");
+          if (ch) ch.style.display = "none";
+        }
+      });
+      // 展开目标物品列表 + 高亮 + 滚动到视野
+      const target = treeEl.querySelector(`.loc-card[data-id="${focusId}"]`);
+      if (target) {
+        target.classList.add("expanded");
+        const itemsEl = target.querySelector(":scope > .loc-items");
+        if (itemsEl) itemsEl.style.display = "flex";
+        target.classList.add("loc-focused");
+        target.scrollIntoView({ block: "center" });
+        setTimeout(() => target.classList.remove("loc-focused"), 2600);
+      }
+    }
+
     // 卡片操作（事件委托）：添加子位置 / 删除 / 非编辑模式点击展开物品 / ▸ 展开物品
     treeEl.addEventListener("click", async (e) => {
       if (suppressClick) {

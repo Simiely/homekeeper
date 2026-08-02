@@ -1495,3 +1495,9 @@ tr.archived td {
   border-top: 1px solid var(--border);
   padding-top: 14px;
 }
+
+/* 位置聚焦高亮（从首页常用位置跳转而来，短暂突出目标） */
+.loc-focused .loc-head {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}

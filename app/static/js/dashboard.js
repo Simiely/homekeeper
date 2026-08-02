@@ -50,7 +50,7 @@ function goView(name) {
 
 export async function renderDashboard() {
   const el = document.getElementById("view-dashboard");
-  el.innerHTML = viewLoading("首页");
+  el.innerHTML = viewLoading("归处");
   let locations = [];
   let allItems = [];
   let summary = { total: 0, total_value: 0 };
@@ -264,9 +264,12 @@ export async function renderDashboard() {
   el.querySelector("#exp-discard").onclick = () => runBatch("delete");
   el.querySelector("#exp-archive").onclick = () => runBatch("archive");
 
-  // 常用位置 → 位置页
+  // 常用位置 → 位置页（携带目标位置 id，位置页只展开并高亮该位置）
   el.querySelectorAll(".hot-loc").forEach((b) => {
-    b.onclick = () => goView("locations");
+    b.onclick = () => {
+      window.__focusLocId = Number(b.dataset.lid);
+      goView("locations");
+    };
   });
 
   renderRecent();
