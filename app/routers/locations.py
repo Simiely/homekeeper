@@ -1,5 +1,5 @@
 """位置 CRUD（层级树）。删除父级时，子位置自动提升一级。业务在 services/location_service.py。"""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,15 +17,6 @@ from app.services import location_service
 router = APIRouter(prefix="/api/locations", tags=["locations"])
 
 
-def _http_error(exc: Exception) -> HTTPException:
-    """把领域异常映射为 HTTP 响应。"""
-    if isinstance(exc, location_service.LocationNotFoundError):
-        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="位置不存在")
-    if isinstance(exc, location_service.LocationInvalidError):
-        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="位置数据不合法")
-
-
 @router.get("", response_model=list[LocationOut])
 def list_locations(
     db: Session = Depends(get_db),
@@ -41,10 +32,7 @@ def reorder_locations(
     current_user: User = Depends(get_current_user),
 ):
     """拖拽排序后批量保存：仅更新 parent_id 与同级 sort_order。"""
-    try:
-        updated = location_service.reorder_locations(db, current_user, payload)
-    except location_service.LocationInvalidError as exc:
-        raise _http_error(exc)
+    updated = location_service.reorder_locations(db, current_user, payload)
     return {"ok": True, "updated": updated}
 
 
@@ -63,10 +51,7 @@ def get_location(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    try:
-        return location_service.get_owned_location(db, current_user, loc_id)
-    except location_service.LocationNotFoundError as exc:
-        raise _http_error(exc)
+    return location_service.get_owned_location(db, current_user, loc_id)
 
 
 @router.post("", response_model=LocationOut, status_code=status.HTTP_201_CREATED)
@@ -85,10 +70,7 @@ def update_location(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    try:
-        return location_service.update_location(db, current_user, loc_id, payload)
-    except location_service.LocationNotFoundError as exc:
-        raise _http_error(exc)
+    return location_service.update_location(db, current_user, loc_id, payload)
 
 
 @router.delete("/{loc_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -97,7 +79,4 @@ def delete_location(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    try:
-        location_service.delete_location(db, current_user, loc_id)
-    except location_service.LocationNotFoundError as exc:
-        raise _http_error(exc)
+    location_service.delete_location(db, current_user, loc_id)

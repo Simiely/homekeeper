@@ -30,10 +30,14 @@ from app.routers import (
 )
 from app.services import audit  # noqa: F401 — 激活操作日志监听器
 from app.services import scheduler as scheduler_mgr
+from app.services.auth_service import InvalidCredentialsError
 from app.services.backup import BackupCorruptError, BackupNotFoundError
 from app.services.borrow_service import BorrowNotFoundError
 from app.services.category_service import CategoryNotFoundError
+from app.services.data_service import DataImportError
+from app.services.image_service import ImageNotFoundError, ImageProcessError
 from app.services.item_service import ItemNotFoundError
+from app.services.location_service import LocationInvalidError, LocationNotFoundError
 from app.services.tag_service import TagNotFoundError
 from app.services.user_service import CannotDeleteSelfError, UsernameExistsError, UserNotFoundError
 
@@ -143,6 +147,42 @@ async def backup_not_found_handler(request: Request, exc: BackupNotFoundError):
 @app.exception_handler(BackupCorruptError)
 async def backup_corrupt_handler(request: Request, exc: BackupCorruptError):
     return JSONResponse(status_code=400, content={"detail": f"备份文件损坏或无法打开：{exc}"})
+
+
+@app.exception_handler(LocationNotFoundError)
+async def location_not_found_handler(request: Request, exc: LocationNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": "位置不存在"})
+
+
+@app.exception_handler(LocationInvalidError)
+async def location_invalid_handler(request: Request, exc: LocationInvalidError):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(ImageNotFoundError)
+async def image_not_found_handler(request: Request, exc: ImageNotFoundError):
+    detail = str(exc)
+    if detail == "无效文件名":
+        return JSONResponse(status_code=400, content={"detail": detail})
+    return JSONResponse(status_code=404, content={"detail": detail})
+
+
+@app.exception_handler(ImageProcessError)
+async def image_process_error_handler(request: Request, exc: ImageProcessError):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": "图片处理失败，请确认上传的是有效图片文件"},
+    )
+
+
+@app.exception_handler(DataImportError)
+async def data_import_error_handler(request: Request, exc: DataImportError):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(InvalidCredentialsError)
+async def invalid_credentials_handler(request: Request, exc: InvalidCredentialsError):
+    return JSONResponse(status_code=401, content={"detail": str(exc)})
 
 
 @app.exception_handler(Exception)

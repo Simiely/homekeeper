@@ -1,7 +1,7 @@
 """CSV 导入/导出：物品/位置/分类/标签。业务在 services/data_service.py。"""
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -54,7 +54,4 @@ def import_items(
 ):
     """从 CSV 文件导入物品（匹配位置/分类/标签名称）。"""
     content = file.file.read()
-    try:
-        return data_service.import_items_from_csv(db, current_user, content, file.filename)
-    except data_service.DataImportError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return data_service.import_items_from_csv(db, current_user, content, file.filename)

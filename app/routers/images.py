@@ -1,5 +1,5 @@
 """物品图片：上传 / 服务 / 删除。业务在 services/image_service.py。"""
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -10,20 +10,6 @@ from app.schemas.item_image import ItemImageOut
 from app.services import image_service
 
 router = APIRouter(tags=["images"])
-
-
-def _http_error(exc: Exception) -> HTTPException:
-    if isinstance(exc, image_service.ImageProcessError):
-        return HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="图片处理失败，请确认上传的是有效图片文件",
-        )
-    if isinstance(exc, image_service.ImageNotFoundError):
-        detail = str(exc)
-        if detail == "无效文件名":
-            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
-        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="物品不存在")
 
 
 @router.post(
@@ -38,12 +24,7 @@ def upload_image(
     current_user: User = Depends(get_current_user),
 ):
     raw = file.file.read()
-    try:
-        return image_service.upload_image(
-            db, current_user, item_id, raw, file.filename
-        )
-    except (image_service.ImageNotFoundError, image_service.ImageProcessError) as exc:
-        raise _http_error(exc)
+    return image_service.upload_image(db, current_user, item_id, raw, file.filename)
 
 
 @router.get("/api/items/{item_id}/images", response_model=list[ItemImageOut])
@@ -52,10 +33,7 @@ def list_images(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    try:
-        return image_service.list_images(db, current_user, item_id)
-    except image_service.ImageNotFoundError as exc:
-        raise _http_error(exc)
+    return image_service.list_images(db, current_user, item_id)
 
 
 @router.get("/api/images/{item_id}/{filename}")
@@ -66,10 +44,7 @@ def serve_image(
     current_user: User = Depends(get_current_user_flex),
 ):
     """服务图片文件（需登录：header 或 ?token= query，供 <img> 直接引用）。"""
-    try:
-        file_path = image_service.get_image_file_path(db, current_user, item_id, filename)
-    except image_service.ImageNotFoundError as exc:
-        raise _http_error(exc)
+    file_path = image_service.get_image_file_path(db, current_user, item_id, filename)
     return FileResponse(file_path, media_type="image/webp")
 
 
@@ -83,8 +58,5 @@ def delete_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    try:
-        image_service.delete_image(db, current_user, item_id, image_id)
-    except image_service.ImageNotFoundError as exc:
-        raise _http_error(exc)
+    image_service.delete_image(db, current_user, item_id, image_id)
     return None
