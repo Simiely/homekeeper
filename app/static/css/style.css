@@ -1632,3 +1632,317 @@ tr.archived td {
   background: rgba(0, 0, 0, 0.55);
   padding: 4px 0;
 }
+
+/* ===== 顶栏 ＋ 按钮（添加物品入口，常驻不随导航滚动） ===== */
+.add-item-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  color: var(--btn-on-accent);
+  font-size: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+.add-item-btn:hover {
+  filter: brightness(1.12);
+  transform: scale(1.06);
+}
+.add-item-btn.active {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+
+/* ===== 物品页：主-从布局（紧凑列表 + 详情卡片） =====
+   移动端：详情卡片在上、列表在下；桌面：左列表右详情（详情吸顶） */
+.items-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.items-pane-detail {
+  order: 1;
+}
+.items-pane-list {
+  order: 2;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .items-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    align-items: start;
+  }
+  .items-pane-list {
+    order: 0;
+    grid-column: 1;
+  }
+  .items-pane-detail {
+    order: 0;
+    grid-column: 2;
+    position: sticky;
+    top: 76px;
+  }
+}
+
+/* 紧凑物品行：名称 + 位置 + 数量/保质期，点击选中 → 详情卡片更新 */
+.item-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+@media (hover: hover) {
+  .item-row:hover {
+    border-color: var(--accent);
+  }
+}
+.item-row.active {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+.item-row.archived {
+  opacity: 0.5;
+}
+.item-row .item-cb {
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.item-thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-in;
+}
+.item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.item-thumb.empty {
+  font-size: 18px;
+  color: var(--muted);
+  cursor: default;
+}
+.item-row-main {
+  flex: 1;
+  min-width: 0;
+}
+.item-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.item-row-name {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-row-status {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+.item-row-loc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* 详情卡片 */
+.item-detail {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+.item-detail.archived {
+  opacity: 0.75;
+}
+.item-detail-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 40px 0;
+}
+.detail-head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.detail-photo {
+  flex-shrink: 0;
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--panel-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--muted);
+}
+.detail-photo[data-img] {
+  cursor: zoom-in;
+}
+.detail-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.detail-name {
+  font-size: 17px;
+  font-weight: 700;
+  word-break: break-all;
+}
+.detail-status {
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.detail-status.dim {
+  color: var(--muted);
+}
+.detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+.detail-field {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.detail-field .k {
+  color: var(--muted);
+  flex-shrink: 0;
+  min-width: 60px;
+}
+.detail-field .v {
+  color: var(--text);
+  word-break: break-all;
+  min-width: 0;
+}
+.detail-field.full .v {
+  line-height: 1.6;
+}
+.loc-link {
+  color: var(--accent);
+  cursor: pointer;
+}
+.loc-link:hover {
+  text-decoration: underline;
+}
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.detail-actions .mini-btn {
+  padding: 6px 12px;
+}
+
+/* ===== 添加/编辑物品页（#/add）表单分组 ===== */
+.add-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.add-head h2 {
+  margin: 0;
+}
+.add-form {
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+}
+.form-group {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.form-group legend {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 0 6px;
+}
+.form-group .full {
+  grid-column: 1 / -1;
+}
+.form-hint {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+@media (max-width: 768px) {
+  .form-group {
+    grid-template-columns: 1fr;
+  }
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+  .form-actions button {
+    width: 100%;
+  }
+}

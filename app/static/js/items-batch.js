@@ -26,11 +26,14 @@ export function initBatch(ctx) {
     el.querySelectorAll(".item-cb").forEach((cb) => {
       cb.onchange = updateBatchBar;
     });
-    // 全选
-    el.querySelector("#select-all").onchange = function () {
-      el.querySelectorAll(".item-cb").forEach((cb) => (cb.checked = this.checked));
-      updateBatchBar();
-    };
+    // 全选（当前页）
+    const selectAll = el.querySelector("#select-all");
+    if (selectAll) {
+      selectAll.onchange = function () {
+        el.querySelectorAll(".item-cb").forEach((cb) => (cb.checked = this.checked));
+        updateBatchBar();
+      };
+    }
     // 批量归档
     el.querySelector("#batch-archive").onclick = () => {
       const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));

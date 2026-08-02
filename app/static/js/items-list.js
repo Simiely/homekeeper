@@ -1,8 +1,8 @@
-// 物品列表：loadItems / 分页 / 行渲染 / 列表事件委托 / 筛选栏 / CSV 导入导出
+// 物品列表：loadItems / 分页 / 紧凑行渲染（突出位置·数量·保质期）/ 选中联动详情 / 筛选栏 / CSV
 // 通过 initList(ctx) 注入上下文（items.js 编排器创建 ctx），无循环依赖
+// 行内不再放操作按钮（编辑/日志/借用/二维码/已处理/删除 都在详情卡片 items-detail.js）
 import { api, imgUrl } from "./api.js";
-import { showBorrowDialog, showLogDialog } from "./item-dialogs.js";
-import { buildLocPath, escapeHtml, showDialog, showOverlay, viewError } from "./utils.js";
+import { buildLocPath, escapeHtml, showDialog, showOverlay, todayStr, viewError } from "./utils.js";
 
 export function initList(ctx) {
   const el = ctx.el;
@@ -24,32 +24,8 @@ export function initList(ctx) {
   // ===== 事件委托（只注册一次，#item-list 是常驻节点，重渲染只改 innerHTML）=====
   const listEl = el.querySelector("#item-list");
   listEl.addEventListener("click", async (e) => {
-    // 上传图片
-    const uploadBtn = e.target.closest("[data-upload-item]");
-    if (uploadBtn) {
-      const itemId = uploadBtn.dataset.uploadItem;
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.addEventListener("change", async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        uploadBtn.classList.add("uploading");
-        uploadBtn.textContent = "…";
-        try {
-          const form = new FormData();
-          form.append("file", file);
-          await api.upload(`/items/${itemId}/images`, form);
-          ctx.loadItems();
-        } catch (err) {
-          showDialog({ title: "上传失败", message: err.message, confirmText: "知道了" });
-          uploadBtn.classList.remove("uploading");
-          uploadBtn.textContent = "+";
-        }
-      });
-      input.click();
-      return;
-    }
+    // 勾选框（批量）：不触发行选中
+    if (e.target.closest(".item-cb")) return;
     // 图片点击放大
     const imgWrap = e.target.closest("[data-img]");
     if (imgWrap) {
@@ -64,64 +40,22 @@ export function initList(ctx) {
       ctx.loadItems();
       return;
     }
-    // 编辑（分派给表单模块）
-    const editBtn = e.target.closest("[data-edit]");
-    if (editBtn) {
-      const itemId = Number(editBtn.dataset.edit);
-      const item = ctx.items.find((it) => it.id === itemId);
-      if (item && ctx.startEdit) ctx.startEdit(item);
+    // 选中一行 → 详情卡片更新（高亮当前行）
+    const row = e.target.closest("[data-sel]");
+    if (row) {
+      const itemId = Number(row.dataset.sel);
+      selectItem(itemId);
       return;
-    }
-    // 日志
-    const logBtn = e.target.closest("[data-log]");
-    if (logBtn) {
-      showLogDialog(logBtn.dataset.log);
-      return;
-    }
-    // 借用记录
-    const borrowBtn = e.target.closest("[data-borrow]");
-    if (borrowBtn) {
-      showBorrowDialog(borrowBtn.dataset.borrow, ctx.loadItems);
-      return;
-    }
-    // 二维码
-    const qrBtn = e.target.closest("[data-qr]");
-    if (qrBtn) {
-      const itemId = qrBtn.dataset.qr;
-      showOverlay({
-        content: `<div style="background:var(--panel);padding:24px;border-radius:16px;text-align:center;cursor:default">
-          <img src="${imgUrl(`/api/items/${itemId}/qrcode`)}" style="width:200px;height:200px;border-radius:8px" />
-          <p style="margin:8px 0 0;color:var(--text);font-size:14px">扫码查看物品</p>
-          <p style="margin:4px 0 0;color:var(--muted);font-size:12px">点击空白处关闭</p>
-        </div>`,
-      });
-      return;
-    }
-    // 已处理 / 撤销已处理
-    const archiveBtn = e.target.closest("[data-archive]");
-    if (archiveBtn) {
-      api.post(`/items/${archiveBtn.dataset.archive}/archive`).then(() => ctx.loadItems());
-      return;
-    }
-    const unarchiveBtn = e.target.closest("[data-unarchive]");
-    if (unarchiveBtn) {
-      api.post(`/items/${unarchiveBtn.dataset.unarchive}/unarchive`).then(() => ctx.loadItems());
-      return;
-    }
-    // 删除
-    const delBtn = e.target.closest("[data-del]");
-    if (delBtn) {
-      const ok = await showDialog({
-        title: "删除物品",
-        message: "确认删除？此操作不可恢复。",
-        confirmText: "删除",
-        cancelText: "取消",
-        danger: true,
-      });
-      if (!ok) return;
-      api.del(`/items/${delBtn.dataset.del}`).then(() => ctx.loadItems());
     }
   });
+
+  // 选中物品：同步 ctx / URL，刷新详情卡片与行高亮
+  function selectItem(id) {
+    ctx.selectedId = id;
+    window.syncHash?.({ sel: id }, { replace: true });
+    ctx.renderDetail(id);
+    listEl.querySelectorAll("[data-sel]").forEach((r) => r.classList.toggle("active", Number(r.dataset.sel) === id));
+  }
 
   // ===== 筛选栏 =====
   const doSearch = () => {
@@ -213,7 +147,7 @@ export function initList(ctx) {
     if (el.querySelector("#f-archived").checked) params.set("show_archived", "true");
     params.set("page", ctx.currentPage);
     params.set("page_size", "20");
-    // 筛选条件同步到 URL（输入类，replace 不产生碎历史；可刷新保留/分享；不含分页）
+    // 筛选条件 + 选中物品同步到 URL（输入类，replace 不产生碎历史；可刷新保留/分享；不含分页）
     window.syncHash?.(
       {
         kw: kw || undefined,
@@ -222,6 +156,7 @@ export function initList(ctx) {
         location_id: lo || undefined,
         tag_id: ta || undefined,
         show_archived: el.querySelector("#f-archived").checked ? "1" : undefined,
+        sel: ctx.selectedId || undefined,
       },
       { replace: true }
     );
@@ -239,7 +174,6 @@ export function initList(ctx) {
     const totalPages = data.total_pages;
 
     const locPath = buildLocPath(ctx.locations);
-    const catMap = Object.fromEntries(ctx.categories.map((c) => [c.id, c.name]));
 
     // 并发获取所有物品的图片（取第一张）
     const imgMap = {};
@@ -254,54 +188,55 @@ export function initList(ctx) {
       })
     );
 
+    // 保质期角标：已过期 X 天 / 今天到期 / 剩 X 天
+    const expiryText = (d) => {
+      const days = Math.round((new Date(d) - new Date(todayStr())) / 86400000);
+      return days < 0 ? `已过期 ${-days} 天` : days === 0 ? "今天到期" : `剩 ${days} 天`;
+    };
+
     const rows = ctx.items
       .map((it) => {
         const img = imgMap[it.id];
-        const imgCell = img
-          ? `<div class="thumb-wrap" data-img="${imgUrl(`/api/images/${img.item_id}/${img.filename}`)}" title="点击放大">
+        const thumb = img
+          ? `<div class="item-thumb" data-img="${imgUrl(`/api/images/${img.item_id}/${img.filename}`)}" title="点击放大">
                <img src="${imgUrl(`/api/images/${img.item_id}/${img.filename}`)}" alt="" loading="lazy" />
              </div>`
-          : `<button class="upload-btn" data-upload-item="${it.id}" title="上传图片">+</button>`;
+          : `<div class="item-thumb empty">📦</div>`;
+        const loc = locPath(it.location_id);
+        const expBadge = it.expiry_date
+          ? `<span class="badge ${it.expiry_date < todayStr() ? "badge-exp" : "badge-warn"}">${expiryText(it.expiry_date)}</span>`
+          : "";
         return `
-    <tr${it.archived ? ' class="archived"' : ""}>
-      <td><input type="checkbox" class="item-cb" value="${it.id}" /></td>
-      <td>${escapeHtml(it.name)}</td>
-      <td>${locPath(it.location_id) || "—"}${
-          it.location_note ? " (" + escapeHtml(it.location_note) + ")" : ""
-        }</td>
-      <td>${catMap[it.category_id] || "—"}</td>
-      <td>${it.quantity} ${escapeHtml(it.unit)}</td>
-      <td>${it.price ? '¥' + it.price.toFixed(2) : "—"}</td>
-      <td>${escapeHtml(it.status)}</td>
-      <td>${it.expiry_date || "—"}</td>
-      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(it.serial_number || "") || "—"}</td>
-      <td>${it.warranty_expiry || "—"}</td>
-      <td>${(it.tags || []).map(t => `<span class="tag-chip" style="background:${t.color}20;color:${t.color};border-color:${t.color}60">${escapeHtml(t.name)}</span>`).join(" ") || "—"}</td>
-      <td style="text-align:center">${imgCell}</td>
-      <td style="white-space:nowrap">
-        <button data-edit="${it.id}" class="mini-btn">编</button>
-        <button data-log="${it.id}" class="mini-btn muted" title="操作日志">日志</button>
-        <button data-borrow="${it.id}" class="mini-btn muted" title="借用记录">借</button>
-        <button data-qr="${it.id}" class="mini-btn muted" title="二维码">◈</button>
-        ${it.archived
-          ? `<button data-unarchive="${it.id}" class="mini-btn muted">撤销已处理</button>`
-          : `<button data-archive="${it.id}" class="mini-btn muted">已处理</button>`}
-        <button data-del="${it.id}" class="mini-btn danger">删</button>
-      </td>
-    </tr>`;
+      <div class="item-row${it.archived ? " archived" : ""}${it.id === ctx.selectedId ? " active" : ""}" data-sel="${it.id}">
+        <input type="checkbox" class="item-cb" value="${it.id}" title="批量选择" />
+        ${thumb}
+        <div class="item-row-main">
+          <div class="item-row-top">
+            <span class="item-row-name">${escapeHtml(it.name)}</span>
+            <span class="item-row-status">${escapeHtml(it.status)}</span>
+          </div>
+          <div class="item-row-loc">📍 ${loc ? escapeHtml(loc) : "未设置位置"}${it.location_note ? "（" + escapeHtml(it.location_note) + "）" : ""}</div>
+          <div class="item-row-meta">
+            <span>数量：${it.quantity} ${escapeHtml(it.unit)}</span>
+            ${expBadge}
+          </div>
+        </div>
+      </div>`;
       })
       .join("");
 
     listEl.innerHTML = `
-      <p class="muted">共 ${total} 件 · 第 ${data.page}/${totalPages} 页</p>
-      <table class="list">
-        <thead><tr><th style="width:32px"><input type="checkbox" id="select-all" /></th><th>名称</th><th>位置</th><th>分类</th><th>数量</th><th>价格</th><th>状态</th><th>保质期</th><th>序列号</th><th>保修</th><th>标签</th><th>图片</th><th></th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="13" class="muted">无匹配物品</td></tr>'}</tbody>
-      </table>
+      <p class="muted" style="display:flex;align-items:center;gap:10px">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer" title="全选当前页">
+          <input type="checkbox" id="select-all" /> 全选
+        </label>
+        <span>共 ${total} 件 · 第 ${data.page}/${totalPages} 页</span>
+      </p>
+      ${rows || '<p class="muted">无匹配物品</p>'}
       <div id="batch-bar" class="batch-bar" style="display:none">
         <span id="batch-count" class="muted" style="margin-right:8px">已选 0 件</span>
-        <select id="batch-status"><option value="">改状态</option>${(ctx.statusOptions || []).map(s => `<option value="${s}">${s}</option>`).join("")}</select>
-        <select id="batch-category"><option value="">改分类</option>${ctx.categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select>
+        <select id="batch-status"><option value="">改状态</option>${(ctx.statusOptions || []).map((s) => `<option value="${s}">${s}</option>`).join("")}</select>
+        <select id="batch-category"><option value="">改分类</option>${ctx.categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select>
         <button id="batch-archive" class="ghost" style="font-size:12px">已处理</button>
         <button id="batch-delete" class="ghost" style="font-size:12px;color:var(--danger)">删除</button>
       </div>
@@ -310,6 +245,8 @@ export function initList(ctx) {
 
     // 批量操作条绑定（由 items-batch.js 提供，重渲染后重新绑定）
     ctx.bindBatch?.();
+    // 详情卡片随列表刷新（保留选中；被删除/移出当前列表的物品自动回落占位）
+    ctx.renderDetail?.(ctx.selectedId);
   }
 
   ctx.loadItems = loadItems;

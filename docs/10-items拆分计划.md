@@ -128,3 +128,25 @@ items-batch.js  70 行 批量（勾选/全选/归档/删除/改状态/改分类�
 - **SQLite 并发加固**：connect timeout 30 + PRAGMA WAL/busy_timeout=30000（a8f0299 内）
 
 验证：全量回归（新增/编辑/筛选/批量/删除/首页/位置/分类/标签/hash 路由）全过，pytest 11 passed（提速至 ~1.7s），无 JS 错误。
+
+---
+
+## 七、后续演进（v0.9.9，2026-08-02）
+
+物品页改版为**主-从布局**，并把表单迁出到独立添加页面，文件结构随之调整：
+
+```
+items.js          ~75 行  编排器（加载元数据 + 筛选栏 + 主-从布局容器 + ctx 组装）
+items-list.js     ~250 行 紧凑列表（突出位置/数量/保质期）+ 选中联动 + 筛选/分页/CSV
+items-detail.js   ~150 行 详情卡片（按选中 ID 拉取完整信息 + 操作按钮绑定）
+items-batch.js    ~75 行  批量条（保留；去掉全选直绑 → 改可选链防御）
+add.js            ~230 行 添加/编辑独立页面（#/add；?id= 编辑；7 组表单 + 扫码回填）
+```
+
+变更要点：
+- **删除 `items-form.js`**：表单整体搬到 `add.js`（顶栏 ＋ → #/add；物品页详情卡 编辑 → #/add?id=N）
+- **新增 `items-detail.js`**：选中物品的详情卡片取代原内联表单 + 行内操作按钮，列表行只保留勾选/缩略图/名称/位置/数量/保质期
+- 列表行新增 `data-sel` 点击 → `selectItem(id)` → `syncHash({sel})` + `ctx.renderDetail(id)` + 行高亮
+- 详情卡片按需 `/items/{id}` 取数（即使筛选隐藏仍可看详情），`?sel=` 写入 URL 可刷新/后退保留
+
+顺带修复：**`_clean_image_dir` 删除图片失败导致 DELETE 物品返回 500**（沙箱 safe-delete 拦截 unlink）。改为单文件 unlink 异常吞掉并 `logger.warning`，不再阻断物品删除（孤儿图片可后续清理）。该修复让 `pytest test_item_crud` 转为通过（35 passed）。

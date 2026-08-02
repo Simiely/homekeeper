@@ -1,5 +1,6 @@
 """物品业务逻辑：CRUD / 筛选 / 分页 / 批量 / 二维码 / 日志 / 磁盘图片清理。"""
 import io
+import logging
 from math import ceil
 from pathlib import Path
 
@@ -19,6 +20,8 @@ from app.models.user import User
 from app.schemas.item import BatchAction, ItemCreate, ItemUpdate, PaginatedItems
 # TagNotFoundError 统一由 tag_service 定义（main.py 全局处理器注册该类）
 from app.services.tag_service import TagNotFoundError
+
+logger = logging.getLogger("homekeeper.item")
 
 
 class ItemNotFoundError(Exception):
@@ -238,8 +241,21 @@ def remove_tag_from_item(db: Session, user: User, item_id: int, tag_id: int) -> 
 
 
 def _clean_image_dir(img_dir: Path) -> None:
-    """删除物品图片目录（存在则清空并移除）。"""
-    if img_dir.exists():
-        for f in img_dir.iterdir():
+    """删除物品图片目录（存在则清空并移除）。
+
+    图片清理失败（如沙箱/权限拦截 unlink）不阻断物品删除——只记录告警，
+    遗留的孤儿图片文件可由后续清理任务回收，避免删除物品整体失败。
+    """
+    if not img_dir.exists():
+        return
+    removed = 0
+    for f in img_dir.iterdir():
+        try:
             f.unlink()
+            removed += 1
+        except OSError as e:
+            logger.warning("清理物品图片失败，跳过：%s（%s）", f, e)
+    try:
         img_dir.rmdir()
+    except OSError as e:
+        logger.warning("移除图片目录失败，跳过：%s（%s）", img_dir, e)

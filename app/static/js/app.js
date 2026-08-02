@@ -2,6 +2,7 @@
 import { getToken, logout, api } from "./api.js";
 import { initPush } from "./push.js";
 import { renderItems } from "./items.js";
+import { renderAdd } from "./add.js";
 import { renderLocations } from "./locations.js";
 import { renderBackups } from "./backups.js";
 import { renderCategories } from "./categories.js";
@@ -35,6 +36,7 @@ if (getToken()) initPush();
 const views = {
   dashboard: renderDashboard,
   items: renderItems,
+  add: renderAdd, // 添加/编辑物品页（顶栏 ＋ 入口；?id= 为编辑模式）
   locations: renderLocations,
   categories: renderCategories,
   tags: renderTags,
@@ -89,6 +91,12 @@ function applyView(name, params) {
   }
   document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
   document.getElementById(`view-${name}`).classList.remove("hidden");
+  // 添加页非导航标签：激活顶栏 ＋ 按钮作视觉反馈
+  if (name === "add") {
+    document.getElementById("add-item-btn")?.classList.add("active");
+  } else {
+    document.getElementById("add-item-btn")?.classList.remove("active");
+  }
   // 供各视图模块读取 URL 参数（如 ?q=搜索词、?open=展开位置）
   window.__viewParams = params;
   views[name]();
@@ -155,6 +163,9 @@ document.querySelectorAll("nav button[data-view]").forEach((btn) => {
     showView(btn.dataset.view);
   };
 });
+
+// 顶栏 ＋ 按钮：进入添加物品页（常驻，不随导航滚动）
+document.getElementById("add-item-btn").onclick = () => showView("add");
 
 // 浏览器前进/后退 → hash 变化 → 渲染对应视图
 window.addEventListener("hashchange", onHashChange);
