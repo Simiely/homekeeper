@@ -256,11 +256,19 @@ window.showView = (name, params = {}) => {
 // 视图内状态同步：
 //  - 默认 push 历史（可逐步后退，如位置展开 A→B，后退回到 A）
 //  - replace=true 仅更新 URL 不产生历史（连续输入类状态，如搜索词/筛选）
+//  - 数组值 → 重复 key（如 open:[4,7] → ?open=4&open=7），用于多选状态
 window.syncHash = (params, opts = {}) => {
   const { view } = parseHash();
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params || {})) {
-    if (v != null && v !== "") q.set(k, v);
+    if (v == null || v === "") continue;
+    if (Array.isArray(v)) {
+      v.forEach((x) => {
+        if (x != null && x !== "") q.append(k, x);
+      });
+    } else {
+      q.set(k, v);
+    }
   }
   const qs = q.toString();
   const newHash = `#/${view}${qs ? "?" + qs : ""}`;

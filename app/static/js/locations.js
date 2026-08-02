@@ -71,10 +71,18 @@ export async function renderLocations() {
     // 渲染后若仍在编辑模式，恢复常驻提示（DOM 重建后 #loc-status 是新的）
     if (editMode && editHintText) showStatus(editHintText, false, true);
 
-    // 聚焦高亮：优先读 URL 参数 ?open=id（hash 路由），兼容旧版 __focusLocId
-    const focusId =
-      Number(window.__viewParams?.get("open") || 0) ||
-      Number(window.__focusLocId || 0);
+    // 恢复展开状态：URL ?open=4&open=7（可多个；刷新/后退时逐个展开，不折叠其他分支）
+    for (const id of getOpenList()) {
+      const card = treeEl.querySelector(`.loc-card[data-id="${id}"]`);
+      if (card) {
+        card.classList.add("expanded");
+        const itemsEl = card.querySelector(":scope > .loc-items");
+        if (itemsEl) itemsEl.style.display = "flex";
+      }
+    }
+
+    // 聚焦高亮（仅首页常用位置跳转的临时标记）：折叠无关分支 + 高亮目标
+    const focusId = Number(window.__focusLocId || 0);
     if (focusId) {
       window.__focusLocId = null; // 一次性消费
       const pmap = Object.fromEntries(locs.map((l) => [l.id, l.parent_id]));
@@ -92,12 +100,9 @@ export async function renderLocations() {
           if (ch) ch.style.display = "none";
         }
       });
-      // 展开目标物品列表 + 高亮 + 滚动到视野
+      // 高亮目标 + 滚动到视野（物品列表已在展开恢复中展开）
       const target = treeEl.querySelector(`.loc-card[data-id="${focusId}"]`);
       if (target) {
-        target.classList.add("expanded");
-        const itemsEl = target.querySelector(":scope > .loc-items");
-        if (itemsEl) itemsEl.style.display = "flex";
         target.classList.add("loc-focused");
         target.scrollIntoView({ block: "center" });
         setTimeout(() => target.classList.remove("loc-focused"), 2600);
@@ -153,9 +158,19 @@ function toggleItems(card) {
   const willShow = !card.classList.contains("expanded");
   itemsEl.style.display = willShow ? "flex" : "none";
   card.classList.toggle("expanded", willShow);
-  // URL 同步：展开时记录 ?open=id，收起时清除（hash 路由，可刷新保留/分享）
+  // URL 同步：维护多个展开位置 ?open=4&open=7（hash 路由，可刷新保留/逐级后退）
   const id = Number(card.dataset.id);
-  window.syncHash?.(willShow && id ? { open: id } : {});
+  const list = getOpenList();
+  const idx = list.indexOf(id);
+  if (willShow && idx < 0) list.push(id);
+  if (!willShow && idx >= 0) list.splice(idx, 1);
+  window.syncHash?.({ open: list.length ? list : undefined });
+}
+
+// 当前 URL 中已展开的位置 id 列表
+function getOpenList() {
+  const raw = window.__viewParams?.getAll("open") || [];
+  return raw.map(Number).filter((n) => n > 0);
 }
 
 // ---- 方块卡片渲染（递归）----

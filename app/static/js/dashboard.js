@@ -266,9 +266,12 @@ export async function renderDashboard() {
   el.querySelector("#exp-discard").onclick = () => runBatch("delete");
   el.querySelector("#exp-archive").onclick = () => runBatch("archive");
 
-  // 常用位置 → 位置页（URL 携带目标位置 id，位置页只展开并高亮该位置）
+  // 常用位置 → 位置页（聚焦标记 + URL 展开参数：折叠无关分支并高亮目标）
   el.querySelectorAll(".hot-loc").forEach((b) => {
-    b.onclick = () => goView("locations", { open: Number(b.dataset.lid) });
+    b.onclick = () => {
+      window.__focusLocId = Number(b.dataset.lid);
+      goView("locations", { open: Number(b.dataset.lid) });
+    };
   });
 
   // 从 URL 恢复搜索词（刷新 #/dashboard?q=xx 或浏览器后退回来）
