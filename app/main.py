@@ -31,9 +31,11 @@ from app.routers import (
 from app.services import audit  # noqa: F401 — 激活操作日志监听器
 from app.services import scheduler as scheduler_mgr
 from app.services.backup import BackupCorruptError, BackupNotFoundError
+from app.services.borrow_service import BorrowNotFoundError
 from app.services.category_service import CategoryNotFoundError
 from app.services.item_service import ItemNotFoundError
 from app.services.tag_service import TagNotFoundError
+from app.services.user_service import CannotDeleteSelfError, UsernameExistsError, UserNotFoundError
 
 logger = logging.getLogger("homekeeper.main")
 
@@ -111,6 +113,26 @@ async def tag_not_found_handler(request: Request, exc: TagNotFoundError):
 @app.exception_handler(CategoryNotFoundError)
 async def category_not_found_handler(request: Request, exc: CategoryNotFoundError):
     return JSONResponse(status_code=404, content={"detail": "分类不存在"})
+
+
+@app.exception_handler(BorrowNotFoundError)
+async def borrow_not_found_handler(request: Request, exc: BorrowNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": "借用记录不存在"})
+
+
+@app.exception_handler(UserNotFoundError)
+async def user_not_found_handler(request: Request, exc: UserNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": "用户不存在"})
+
+
+@app.exception_handler(UsernameExistsError)
+async def username_exists_handler(request: Request, exc: UsernameExistsError):
+    return JSONResponse(status_code=400, content={"detail": "用户名已存在"})
+
+
+@app.exception_handler(CannotDeleteSelfError)
+async def cannot_delete_self_handler(request: Request, exc: CannotDeleteSelfError):
+    return JSONResponse(status_code=400, content={"detail": "不能删除自己"})
 
 
 @app.exception_handler(BackupNotFoundError)

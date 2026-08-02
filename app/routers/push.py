@@ -1,18 +1,18 @@
 """Web Push API：订阅管理 + VAPID 公钥下发。
 
-职责边界：本模块只定义 HTTP 端点；推送业务与调度见 services/push_scheduler.py。
+职责边界：本模块只定义 HTTP 端点；订阅业务见 services/push_scheduler.py 的 subscribe/unsubscribe。
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from base64 import urlsafe_b64encode
 
 from cryptography.hazmat.primitives import serialization
-from base64 import urlsafe_b64encode
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models.push_subscription import PushSubscription
 from app.models.user import User
 from app.schemas.push_subscription import SubscribeBody
+from app.services import push_scheduler
 from app.services.push_scheduler import get_vapid
 
 router = APIRouter(prefix="/api/push", tags=["push"])
@@ -39,27 +39,8 @@ def subscribe(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """保存浏览器的推送订阅信息。"""
-    existing = (
-        db.query(PushSubscription)
-        .filter(
-            PushSubscription.user_id == current_user.id,
-            PushSubscription.endpoint == body.endpoint,
-        )
-        .first()
-    )
-    if existing:
-        existing.auth_key = body.auth_key
-        existing.p256dh_key = body.p256dh_key
-    else:
-        sub = PushSubscription(
-            user_id=current_user.id,
-            endpoint=body.endpoint,
-            auth_key=body.auth_key,
-            p256dh_key=body.p256dh_key,
-        )
-        db.add(sub)
-    db.commit()
+    """保存浏览器的推送订阅信息（幂等 upsert）。"""
+    push_scheduler.subscribe(db, current_user, body)
     return {"ok": True}
 
 
@@ -70,9 +51,5 @@ def unsubscribe(
     current_user: User = Depends(get_current_user),
 ):
     """删除推送订阅（用户取消授权时调用）。"""
-    db.query(PushSubscription).filter(
-        PushSubscription.user_id == current_user.id,
-        PushSubscription.endpoint == body.endpoint,
-    ).delete()
-    db.commit()
+    push_scheduler.unsubscribe(db, current_user, body)
     return None

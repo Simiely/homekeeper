@@ -67,6 +67,42 @@ def get_vapid() -> Vapid | None:
     return get_vapid._instance
 
 
+# ========== 订阅管理（业务逻辑，由 routers/push.py 调用） ==========
+
+
+def subscribe(db: Session, user: User, body) -> None:
+    """保存/更新浏览器的推送订阅（同一 endpoint 幂等 upsert）。"""
+    existing = (
+        db.query(PushSubscription)
+        .filter(
+            PushSubscription.user_id == user.id,
+            PushSubscription.endpoint == body.endpoint,
+        )
+        .first()
+    )
+    if existing:
+        existing.auth_key = body.auth_key
+        existing.p256dh_key = body.p256dh_key
+    else:
+        sub = PushSubscription(
+            user_id=user.id,
+            endpoint=body.endpoint,
+            auth_key=body.auth_key,
+            p256dh_key=body.p256dh_key,
+        )
+        db.add(sub)
+    db.commit()
+
+
+def unsubscribe(db: Session, user: User, body) -> None:
+    """删除推送订阅（用户取消授权时调用）。"""
+    db.query(PushSubscription).filter(
+        PushSubscription.user_id == user.id,
+        PushSubscription.endpoint == body.endpoint,
+    ).delete()
+    db.commit()
+
+
 # ========== 调度器 ==========
 
 scheduler = BackgroundScheduler()
