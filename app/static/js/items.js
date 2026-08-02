@@ -1,7 +1,7 @@
 // 物品视图：筛选 + 列表 + 新增 + 删除（关联位置/分类/状态/保质期）
 import { api, imgUrl } from "./api.js";
 import { showBorrowDialog, showLogDialog } from "./item-dialogs.js";
-import { buildTreeOptions, escapeHtml, viewError, viewLoading } from "./utils.js";
+import { batchItems, buildLocPath, buildTreeOptions, escapeHtml, viewError, viewLoading } from "./utils.js";
 
 // 状态字典：由后端 /api/meta 提供（单一数据源），此处为离线兜底值
 let STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃"];
@@ -395,18 +395,7 @@ export async function renderItems() {
       const total = data.total;
       const totalPages = data.total_pages;
 
-      const parentMap = Object.fromEntries(locations.map((l) => [l.id, l.parent_id]));
-      const nameMap = Object.fromEntries(locations.map((l) => [l.id, l.name]));
-      const locPath = (id) => {
-        if (!id) return null;
-        const parts = [];
-        let cur = id;
-        while (cur && nameMap[cur]) {
-          parts.unshift(nameMap[cur]);
-          cur = parentMap[cur];
-        }
-        return parts.join(" > ");
-      };
+      const locPath = buildLocPath(locations);
       const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
 
       // 并发获取所有物品的图片（取第一张）
@@ -448,14 +437,14 @@ export async function renderItems() {
           <td>${(it.tags || []).map(t => `<span class="tag-chip" style="background:${t.color}20;color:${t.color};border-color:${t.color}60">${escapeHtml(t.name)}</span>`).join(" ") || "—"}</td>
           <td style="text-align:center">${imgCell}</td>
           <td style="white-space:nowrap">
-            <button data-edit="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">编</button>
-            <button data-log="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px" title="操作日志">日志</button>
-            <button data-borrow="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px" title="借用记录">借</button>
-            <button data-qr="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px" title="二维码">◈</button>
+            <button data-edit="${it.id}" class="mini-btn">编</button>
+            <button data-log="${it.id}" class="mini-btn muted" title="操作日志">日志</button>
+            <button data-borrow="${it.id}" class="mini-btn muted" title="借用记录">借</button>
+            <button data-qr="${it.id}" class="mini-btn muted" title="二维码">◈</button>
             ${it.archived
-              ? `<button data-unarchive="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px">取消归档</button>`
-              : `<button data-archive="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px">归档</button>`}
-            <button data-del="${it.id}" style="background:transparent;border:1px solid var(--border);color:var(--danger);padding:4px 8px;border-radius:6px;font-size:12px">删</button>
+              ? `<button data-unarchive="${it.id}" class="mini-btn muted">取消归档</button>`
+              : `<button data-archive="${it.id}" class="mini-btn muted">归档</button>`}
+            <button data-del="${it.id}" class="mini-btn danger">删</button>
           </td>
         </tr>`;
           }
@@ -508,7 +497,7 @@ export async function renderItems() {
       el.querySelector("#batch-archive").onclick = () => {
         const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
         if (!ids.length) return;
-        api.post("/items/batch", { item_ids: ids, action: "archive" }).then(() => loadItems());
+        batchItems(ids, "archive").then(() => loadItems());
       };
 
       // 批量删除
@@ -516,7 +505,7 @@ export async function renderItems() {
         const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
         if (!ids.length) return;
         if (!confirm(`确认删除 ${ids.length} 件物品？`)) return;
-        api.post("/items/batch", { item_ids: ids, action: "delete" }).then(() => loadItems());
+        batchItems(ids, "delete").then(() => loadItems());
       };
 
       // 批量改状态
@@ -524,7 +513,7 @@ export async function renderItems() {
         if (!this.value) return;
         const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
         if (!ids.length) return;
-        api.post("/items/batch", { item_ids: ids, action: "update", status: this.value }).then(() => {
+        batchItems(ids, "update", { status: this.value }).then(() => {
           this.value = "";
           loadItems();
         });
@@ -535,7 +524,7 @@ export async function renderItems() {
         if (!this.value) return;
         const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
         if (!ids.length) return;
-        api.post("/items/batch", { item_ids: ids, action: "update", category_id: Number(this.value) }).then(() => {
+        batchItems(ids, "update", { category_id: Number(this.value) }).then(() => {
           this.value = "";
           loadItems();
         });

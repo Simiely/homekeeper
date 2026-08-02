@@ -1506,3 +1506,23 @@ tr.archived td {
   border-color: var(--accent);
   background: var(--panel-2);
 }
+
+/* 小按钮（列表行内操作：编/日志/借/归档/删等）——替代 7 处重复内联样式 */
+.mini-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.mini-btn:hover {
+  border-color: var(--accent);
+}
+.mini-btn.muted {
+  color: var(--muted);
+}
+.mini-btn.danger {
+  color: var(--danger);
+}

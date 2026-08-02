@@ -1,6 +1,6 @@
 // 首页：快速找物品（全局搜索）+ 临期清理工作台 + 常用位置 + 统计（底部边缘弱化）
 import { api } from "./api.js";
-import { escapeHtml, viewError, viewLoading } from "./utils.js";
+import { batchItems, buildLocPath, escapeHtml, todayStr, viewError, viewLoading } from "./utils.js";
 
 const RECENT_KEY = "hk-recent-searches";
 const RECENT_MAX = 8;
@@ -21,26 +21,9 @@ function pushRecent(kw) {
   localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function expiryLabel(d) {
   const days = Math.round((new Date(d) - new Date(todayStr())) / 86400000);
   return days < 0 ? `已过期${-days}天` : days === 0 ? "今天到期" : `剩${days}天`;
-}
-
-function locPath(id, locations) {
-  if (!id) return null;
-  const parentMap = Object.fromEntries(locations.map((l) => [l.id, l.parent_id]));
-  const nameMap = Object.fromEntries(locations.map((l) => [l.id, l.name]));
-  const parts = [];
-  let cur = id;
-  while (cur && nameMap[cur]) {
-    parts.unshift(nameMap[cur]);
-    cur = parentMap[cur];
-  }
-  return parts.join(" > ");
 }
 
 function goView(name, params) {
@@ -67,7 +50,7 @@ export async function renderDashboard() {
     return;
   }
 
-  const pathOf = (id) => locPath(id, locations);
+  const pathOf = buildLocPath(locations);
 
   // 常用位置：有物品的位置，按物品数降序取前 8
   const countByLoc = {};
@@ -256,7 +239,7 @@ export async function renderDashboard() {
     if (!ids.length) return;
     if (action === "delete" && !confirm(`确认丢弃选中的 ${ids.length} 件物品？此操作不可恢复。`)) return;
     try {
-      await api.post("/items/batch", { item_ids: ids, action });
+      await batchItems(ids, action);
       await loadExpiring();
       renderDashboard(); // 刷新统计与常用位置
     } catch (e) {

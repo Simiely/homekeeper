@@ -16,8 +16,8 @@ export async function renderCategories() {
         <td><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${escapeHtml(c.color)};vertical-align:middle"></span> ${escapeHtml(c.name)}</td>
         <td>${escapeHtml(c.color)}</td>
         <td style="white-space:nowrap">
-          <button data-edit="${c.id}" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">编</button>
-          <button data-del="${c.id}" style="background:transparent;border:1px solid var(--border);color:var(--danger);padding:4px 8px;border-radius:6px;font-size:12px">删</button>
+          <button data-edit="${c.id}" class="mini-btn">编</button>
+          <button data-del="${c.id}" class="mini-btn danger">删</button>
         </td>
       </tr>`
       )

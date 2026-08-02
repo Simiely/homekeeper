@@ -31,7 +31,7 @@ export async function renderBackups() {
               <td>${escapeHtml(b.filename)}</td>
               <td>${size}</td>
               <td>${b.created_at.slice(0, 19).replace("T", " ")}</td>
-              <td><button data-restore="${b.filename}" style="background:transparent;border:1px solid var(--danger);color:var(--danger);padding:4px 10px;border-radius:6px;font-size:12px">恢复</button></td>
+              <td><button data-restore="${b.filename}" class="mini-btn danger">恢复</button></td>
             </tr>`;
           }).join("") : '<tr><td colspan="4" class="muted">暂无备份</td></tr>'}
         </tbody>

@@ -25,8 +25,8 @@ export async function renderTags() {
               <td><span class="tag-chip" style="background:${t.color}20;color:${t.color};border-color:${t.color}">${escapeHtml(t.name)}</span></td>
               <td><span style="display:inline-block;width:24px;height:24px;border-radius:6px;background:${t.color};vertical-align:middle"></span> ${t.color}</td>
               <td style="white-space:nowrap">
-                <button data-edit="${t.id}" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">编</button>
-                <button data-del="${t.id}" style="background:transparent;border:1px solid var(--border);color:var(--danger);padding:4px 8px;border-radius:6px;font-size:12px">删</button>
+                <button data-edit="${t.id}" class="mini-btn">编</button>
+                <button data-del="${t.id}" class="mini-btn danger">删</button>
               </td>
             </tr>
           `).join("") : '<tr><td colspan="3" class="muted">暂无标签</td></tr>'}
