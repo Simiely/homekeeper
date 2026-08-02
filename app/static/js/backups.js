@@ -1,6 +1,6 @@
 // 备份管理：列表 + 手动备份 + 恢复
 import { api } from "./api.js";
-import { escapeHtml, viewError, viewLoading } from "./utils.js";
+import { escapeHtml, showDialog, viewError, viewLoading } from "./utils.js";
 
 export async function renderBackups() {
   const el = document.getElementById("view-backups");
@@ -45,25 +45,44 @@ export async function renderBackups() {
       btn.disabled = true;
       try {
         const r = await api.post("/backups/trigger");
-        if (r.ok) alert("备份完成：" + r.filename);
-        else alert("备份跳过：" + r.reason);
+        showDialog({
+          title: r.ok ? "备份完成" : "备份跳过",
+          message: r.ok ? r.filename : r.reason,
+          confirmText: "知道了",
+        });
       } catch (e) {
-        alert("备份失败：" + e.message);
+        showDialog({ title: "备份失败", message: e.message, confirmText: "知道了" });
       }
       renderBackups();
     };
 
-    // 恢复（委托）
+    // 恢复（委托）：双重确认
     el.querySelector("tbody")?.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-restore]");
       if (!btn) return;
       const filename = btn.dataset.restore;
-      if (!confirm(`确认从 ${filename} 恢复？\n\n当前数据将被覆盖，此操作不可撤销！`)) return;
-      if (!confirm("再次确认：所有未备份的数据将丢失，确定恢复？")) return;
-      api.post(`/backups/${filename}/restore`).then(() => {
-        alert("恢复成功！页面即将刷新。");
-        location.reload();
-      }).catch((err) => alert("恢复失败：" + err.message));
+      showDialog({
+        title: "恢复备份",
+        message: `确认从 ${filename} 恢复？当前数据将被覆盖，此操作不可撤销！`,
+        confirmText: "继续",
+        cancelText: "取消",
+        danger: true,
+      }).then((ok) => {
+        if (!ok) return;
+        return showDialog({
+          title: "再次确认",
+          message: "所有未备份的数据将丢失，确定恢复？",
+          confirmText: "恢复",
+          cancelText: "取消",
+          danger: true,
+        });
+      }).then((ok2) => {
+        if (!ok2) return;
+        api.post(`/backups/${filename}/restore`).then(() => {
+          showDialog({ title: "恢复成功", message: "页面即将刷新。", confirmText: "知道了" });
+          location.reload();
+        }).catch((err) => showDialog({ title: "恢复失败", message: err.message, confirmText: "知道了" }));
+      });
     });
   } catch (e) {
     el.innerHTML = viewError(e.message);

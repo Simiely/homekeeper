@@ -2,7 +2,7 @@
 // 通过 initList(ctx) 注入上下文（items.js 编排器创建 ctx），无循环依赖
 import { api, imgUrl } from "./api.js";
 import { showBorrowDialog, showLogDialog } from "./item-dialogs.js";
-import { buildLocPath, escapeHtml, viewError } from "./utils.js";
+import { buildLocPath, escapeHtml, showDialog, showOverlay, viewError } from "./utils.js";
 
 export function initList(ctx) {
   const el = ctx.el;
@@ -42,7 +42,7 @@ export function initList(ctx) {
           await api.upload(`/items/${itemId}/images`, form);
           ctx.loadItems();
         } catch (err) {
-          alert("上传失败: " + err.message);
+          showDialog({ title: "上传失败", message: err.message, confirmText: "知道了" });
           uploadBtn.classList.remove("uploading");
           uploadBtn.textContent = "+";
         }
@@ -53,11 +53,7 @@ export function initList(ctx) {
     // 图片点击放大
     const imgWrap = e.target.closest("[data-img]");
     if (imgWrap) {
-      const overlay = document.createElement("div");
-      overlay.className = "img-overlay";
-      overlay.innerHTML = `<img src="${imgWrap.dataset.img}" alt="" />`;
-      overlay.onclick = () => overlay.remove();
-      document.body.appendChild(overlay);
+      showOverlay({ content: `<img src="${imgWrap.dataset.img}" alt="" />` });
       return;
     }
     // 翻页
@@ -92,15 +88,13 @@ export function initList(ctx) {
     const qrBtn = e.target.closest("[data-qr]");
     if (qrBtn) {
       const itemId = qrBtn.dataset.qr;
-      const overlay = document.createElement("div");
-      overlay.className = "img-overlay";
-      overlay.innerHTML = `<div style="background:var(--panel);padding:24px;border-radius:16px;text-align:center;cursor:default">
-        <img src="${imgUrl(`/api/items/${itemId}/qrcode`)}" style="width:200px;height:200px;border-radius:8px" />
-        <p style="margin:8px 0 0;color:var(--text);font-size:14px">扫码查看物品</p>
-        <p style="margin:4px 0 0;color:var(--muted);font-size:12px">点击任意位置关闭</p>
-      </div>`;
-      overlay.onclick = () => overlay.remove();
-      document.body.appendChild(overlay);
+      showOverlay({
+        content: `<div style="background:var(--panel);padding:24px;border-radius:16px;text-align:center;cursor:default">
+          <img src="${imgUrl(`/api/items/${itemId}/qrcode`)}" style="width:200px;height:200px;border-radius:8px" />
+          <p style="margin:8px 0 0;color:var(--text);font-size:14px">扫码查看物品</p>
+          <p style="margin:4px 0 0;color:var(--muted);font-size:12px">点击空白处关闭</p>
+        </div>`,
+      });
       return;
     }
     // 归档 / 取消归档
@@ -117,7 +111,14 @@ export function initList(ctx) {
     // 删除
     const delBtn = e.target.closest("[data-del]");
     if (delBtn) {
-      if (!confirm("确认删除？")) return;
+      const ok = await showDialog({
+        title: "删除物品",
+        message: "确认删除？此操作不可恢复。",
+        confirmText: "删除",
+        cancelText: "取消",
+        danger: true,
+      });
+      if (!ok) return;
       api.del(`/items/${delBtn.dataset.del}`).then(() => ctx.loadItems());
     }
   });
@@ -150,7 +151,7 @@ export function initList(ctx) {
     try {
       await api.download("/export/items");
     } catch (e) {
-      alert("导出失败：" + e.message);
+      showDialog({ title: "导出失败", message: e.message, confirmText: "知道了" });
     }
   };
   const fileInput = el.querySelector("#import-file");
@@ -167,10 +168,10 @@ export function initList(ctx) {
         msg += `\n${result.errors.length} 条错误：\n${result.errors.slice(0, 5).join("\n")}`;
         if (result.errors.length > 5) msg += `\n…还有 ${result.errors.length - 5} 条`;
       }
-      alert(msg);
+      showDialog({ title: "导入完成", message: msg, confirmText: "知道了" });
       ctx.loadItems();
     } catch (e) {
-      alert("导入失败：" + e.message);
+      showDialog({ title: "导入失败", message: e.message, confirmText: "知道了" });
     }
     fileInput.value = "";
   };

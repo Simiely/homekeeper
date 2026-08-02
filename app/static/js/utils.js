@@ -68,10 +68,11 @@ export function buildTreeOptions(locations, placeholder) {
 }
 
 // 程序自带确认/提示弹窗（替代原生 confirm/alert）
-// 用法：const ok = await showDialog({ title, message, confirmText, cancelText, danger })
+// 用法：const ok = await showDialog({ title, message, content, confirmText, cancelText, danger })
+//  - content：自定义 HTML 内容（不转义，调用方负责）；与 message 二选一，content 优先
 //  - 有 cancelText = 确认框（点确认 resolve(true)，取消/点遮罩 resolve(false)）
 //  - 无 cancelText = 提示框（点确定/点遮罩 resolve(false)，调用方无需理会返回值）
-export function showDialog({ title = "提示", message = "", confirmText = "确定", cancelText = null, danger = false }) {
+export function showDialog({ title = "提示", message = "", content = "", confirmText = "确定", cancelText = null, danger = false }) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "img-overlay";
@@ -79,7 +80,7 @@ export function showDialog({ title = "提示", message = "", confirmText = "确�
     overlay.innerHTML = `
       <div class="hk-dialog" role="dialog" aria-modal="true">
         <p class="hk-dialog-title">${escapeHtml(title)}</p>
-        <p class="hk-dialog-msg">${escapeHtml(message)}</p>
+        ${content ? `<div class="hk-dialog-body">${content}</div>` : `<p class="hk-dialog-msg">${escapeHtml(message)}</p>`}
         <div class="hk-dialog-actions">
           ${cancelText ? `<button type="button" class="ghost" data-act="cancel">${escapeHtml(cancelText)}</button>` : ""}
           <button type="button" class="${danger ? "danger" : ""}" data-act="ok">${escapeHtml(confirmText)}</button>
@@ -95,4 +96,22 @@ export function showDialog({ title = "提示", message = "", confirmText = "确�
     overlay.onclick = () => close(false);
     document.body.appendChild(overlay);
   });
+}
+
+// 通用内容弹窗（图片放大 / 二维码 / 日志 / 借用表单等富内容复用）
+// 返回 { overlay, close }；content 为 HTML 字符串（不转义，调用方负责）
+export function showOverlay({ content, onClose }) {
+  const overlay = document.createElement("div");
+  overlay.className = "img-overlay";
+  overlay.style.cursor = "default";
+  overlay.innerHTML = content;
+  const close = () => {
+    overlay.remove();
+    onClose?.();
+  };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) close();
+  };
+  document.body.appendChild(overlay);
+  return { overlay, close };
 }

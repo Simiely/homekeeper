@@ -1,6 +1,7 @@
 // 物品表单：新增提交 / 编辑回填（startEdit/cancelEdit）/ buildPayload
 // 通过 initForm(ctx) 注入上下文；ctx.startEdit 由此模块注入（列表行 [data-edit] 分派用）
 import { api } from "./api.js";
+import { showDialog } from "./utils.js";
 
 export function initForm(ctx) {
   const el = ctx.el;
@@ -80,7 +81,7 @@ export function initForm(ctx) {
       cancelEdit();
       ctx.loadItems();
     } catch (err) {
-      alert("保存失败：" + err.message);
+      showDialog({ title: "保存失败", message: err.message, confirmText: "知道了" });
     }
   };
 }

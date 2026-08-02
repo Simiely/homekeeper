@@ -12,7 +12,7 @@
 //
 // 拖拽系统独立在 locations-drag.js（依赖注入解耦），本文件只做渲染与交互编排
 import { api } from "./api.js";
-import { buildLocTree, buildTreeOptions, escapeHtml, viewError, viewLoading } from "./utils.js";
+import { buildLocTree, buildTreeOptions, escapeHtml, showDialog, viewError, viewLoading } from "./utils.js";
 import { attachDrag, consumeSuppress, initDrag } from "./locations-drag.js";
 
 // 编辑模式（拖拽调层级）；默认关闭，点击卡片 = 改名
@@ -136,7 +136,14 @@ export async function renderLocations() {
       }
       const btn = e.target.closest("[data-del]");
       if (btn) {
-        if (!confirm("确认删除？子位置将提升一级")) return;
+        const ok = await showDialog({
+          title: "删除位置",
+          message: "确认删除？子位置将提升一级。",
+          confirmText: "删除",
+          cancelText: "取消",
+          danger: true,
+        });
+        if (!ok) return;
         await api.del(`/locations/${btn.dataset.del}`);
         renderLocations();
         return;

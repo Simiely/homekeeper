@@ -1,6 +1,6 @@
 // 分类视图：列表 + 新增 + 编辑 + 删除（带颜色）
 import { api } from "./api.js";
-import { escapeHtml, viewError, viewLoading } from "./utils.js";
+import { escapeHtml, showDialog, viewError, viewLoading } from "./utils.js";
 
 let editId = null;
 
@@ -72,7 +72,14 @@ export async function renderCategories() {
 
     el.querySelectorAll("button[data-del]").forEach((b) => {
       b.onclick = async () => {
-        if (!confirm("确认删除？")) return;
+        const ok = await showDialog({
+          title: "删除分类",
+          message: "确认删除？删除后该分类下的物品变为未分类。",
+          confirmText: "删除",
+          cancelText: "取消",
+          danger: true,
+        });
+        if (!ok) return;
         await api.del(`/categories/${b.dataset.del}`);
         renderCategories();
       };

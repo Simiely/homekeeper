@@ -1,6 +1,6 @@
 // 管理页：用户管理
 import { api } from "./api.js";
-import { viewError } from "./utils.js";
+import { showDialog, viewError } from "./utils.js";
 
 export async function renderAdmin() {
   const view = document.getElementById("view-admin");
@@ -72,12 +72,19 @@ async function loadUsers() {
     container.querySelectorAll(".del-user").forEach((btn) => {
       btn.onclick = async () => {
         const name = btn.dataset.name;
-        if (!confirm(`确定删除用户「${name}」？此操作不可撤销。`)) return;
+        const ok = await showDialog({
+          title: "删除用户",
+          message: `确定删除用户「${name}」？此操作不可撤销。`,
+          confirmText: "删除",
+          cancelText: "取消",
+          danger: true,
+        });
+        if (!ok) return;
         try {
           await api.del(`/admin/users/${btn.dataset.id}`);
           await loadUsers();
         } catch (err) {
-          alert(err.message);
+          showDialog({ title: "操作失败", message: err.message, confirmText: "知道了" });
         }
       };
     });

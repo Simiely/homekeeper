@@ -1,6 +1,6 @@
 // 标签管理：列表 + 新增 + 编辑 + 删除
 import { api } from "./api.js";
-import { escapeHtml, viewError, viewLoading } from "./utils.js";
+import { escapeHtml, showDialog, viewError, viewLoading } from "./utils.js";
 
 let editTagId = null;
 
@@ -70,7 +70,14 @@ export async function renderTags() {
 
     el.querySelectorAll("[data-del]").forEach((b) => {
       b.onclick = async () => {
-        if (!confirm("确认删除？标签将从所有物品中移除。")) return;
+        const ok = await showDialog({
+          title: "删除标签",
+          message: "确认删除？标签将从所有物品中移除。",
+          confirmText: "删除",
+          cancelText: "取消",
+          danger: true,
+        });
+        if (!ok) return;
         await api.del(`/tags/${b.dataset.del}`);
         renderTags();
       };

@@ -1,6 +1,6 @@
 // 物品批量操作：批量条绑定（勾选计数 / 全选 / 归档 / 删除 / 改状态 / 改分类）
 // items-list.js 渲染列表后调用 ctx.bindBatch() 完成绑定；ctx 由 items.js 编排器创建
-import { batchItems } from "./utils.js";
+import { batchItems, showDialog } from "./utils.js";
 
 export function initBatch(ctx) {
   const el = ctx.el;
@@ -41,8 +41,15 @@ export function initBatch(ctx) {
     el.querySelector("#batch-delete").onclick = () => {
       const ids = [...el.querySelectorAll(".item-cb:checked")].map((cb) => Number(cb.value));
       if (!ids.length) return;
-      if (!confirm(`确认删除 ${ids.length} 件物品？`)) return;
-      batchItems(ids, "delete").then(() => ctx.loadItems());
+      showDialog({
+        title: "批量删除",
+        message: `确认删除 ${ids.length} 件物品？此操作不可恢复。`,
+        confirmText: "删除",
+        cancelText: "取消",
+        danger: true,
+      }).then((ok) => {
+        if (ok) batchItems(ids, "delete").then(() => ctx.loadItems());
+      });
     };
     // 批量改状态
     el.querySelector("#batch-status").onchange = function () {
