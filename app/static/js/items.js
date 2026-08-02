@@ -54,7 +54,8 @@ export async function renderItems() {
           ${STATUS_OPTIONS.map((s) => `<option>${s}</option>`).join("")}
         </select>
         <input name="expiry_date" type="date" title="保质期" />
-        <input name="purchase_date" type="date" title="购买日期" />
+        <input name="shelf_life_days" type="number" min="1" placeholder="保质期天数" title="填写保质期天数，自动算出到期时间" />
+        <input name="purchase_date" type="date" title="购买日期（到期时间按 购买日+保质期 计算）" />
         <input name="serial_number" placeholder="序列号" />
         <input name="price" type="number" step="0.01" placeholder="价格" title="价格（元）" />
         <input name="warranty_expiry" type="date" title="保修到期" />

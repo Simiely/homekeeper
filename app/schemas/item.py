@@ -18,6 +18,7 @@ class ItemBase(BaseModel):
     status: ItemStatus = ItemStatus.IN_STOCK
     expiry_date: date | None = None
     purchase_date: date | None = None
+    shelf_life_days: int | None = None  # 保质期天数（选填）
     price: float | None = None
     serial_number: str | None = None
     warranty_expiry: date | None = None
@@ -38,6 +39,7 @@ class ItemUpdate(BaseModel):
     status: ItemStatus | None = None
     expiry_date: date | None = None
     purchase_date: date | None = None
+    shelf_life_days: int | None = None
     price: float | None = None
     serial_number: str | None = None
     warranty_expiry: date | None = None

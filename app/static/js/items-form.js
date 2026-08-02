@@ -11,6 +11,24 @@ export function initForm(ctx) {
   const photoPreview = el.querySelector("#item-photo-preview");
   let photoFile = null; // 待上传的照片文件（新增模式）
 
+  // ---- 保质期天数 → 自动计算到期时间（购买日期 + 天数；无购买日期按今天）----
+  const shelfInput = form.querySelector("[name=shelf_life_days]");
+  const expiryInput = form.querySelector("[name=expiry_date]");
+  const purchaseInput = form.querySelector("[name=purchase_date]");
+  const calcExpiry = () => {
+    const days = parseInt(shelfInput?.value || "", 10);
+    if (!days || days <= 0) return;
+    const base = purchaseInput?.value || new Date().toISOString().slice(0, 10);
+    const d = new Date(base + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    expiryInput.value = `${y}-${m}-${dd}`;
+  };
+  shelfInput?.addEventListener("input", calcExpiry);
+  purchaseInput?.addEventListener("change", calcExpiry);
+
   // 照片选择 → 本地预览（仅新增模式展示；编辑已有行内上传/缩略图）
   const onPhotoPicked = (input) => {
     const f = input.files?.[0];
@@ -41,6 +59,7 @@ export function initForm(ctx) {
     form.querySelector("[name=unit]").value = item.unit || "";
     form.querySelector("[name=status]").value = item.status || "在库";
     form.querySelector("[name=expiry_date]").value = item.expiry_date || "";
+    form.querySelector("[name=shelf_life_days]").value = item.shelf_life_days ?? "";
     form.querySelector("[name=purchase_date]").value = item.purchase_date || "";
     form.querySelector("[name=serial_number]").value = item.serial_number || "";
     form.querySelector("[name=price]").value = item.price ?? "";
@@ -140,6 +159,7 @@ function buildPayload(fd, statusFallback) {
     status: fd.get("status") || statusFallback || "在库",
     expiry_date: fd.get("expiry_date") || null,
     purchase_date: fd.get("purchase_date") || null,
+    shelf_life_days: fd.get("shelf_life_days") ? Number(fd.get("shelf_life_days")) : null,
     serial_number: fd.get("serial_number") || null,
     price: fd.get("price") ? Number(fd.get("price")) : null,
     warranty_expiry: fd.get("warranty_expiry") || null,

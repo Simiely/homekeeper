@@ -35,6 +35,7 @@ class Item(Base):
     status: Mapped[ItemStatus] = mapped_column(default=ItemStatus.IN_STOCK)
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    shelf_life_days: Mapped[int | None] = mapped_column(nullable=True)  # 保质期天数（选填，用于自动计算到期）
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
