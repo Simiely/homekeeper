@@ -107,7 +107,24 @@ const ctx = {
 
 ---
 
-## 六、待确认
+## 六、执行结果（已完成）
 
-1. 4 文件拆分方案是否 OK？（替代原 docs/09 的 items-form/list/batch 三文件方案，多一个入口编排文件更清晰）
-2. 确认后按 4 步执行，每步提交一次。
+| 步骤 | 提交 | 结果 |
+|------|------|------|
+| Step 1：items-list.js | a8f0299 | ✅ loadItems/分页/行模板/事件委托/筛选/CSV 迁出，items.js 557→202 行 |
+| Step 2：items-form.js | a62cce9 | ✅ 表单提交/编辑回填/buildPayload 迁出，items.js 106 行 |
+| Step 3：items-batch.js | 2c570ee | ✅ 批量条绑定迁出，items.js 109 行编排器 |
+
+最终结构（4 文件，最大 316 行）：
+```
+items.js       109 行 编排器（元数据 + 主模板 + ctx 组装）
+items-list.js  316 行 列表（loadItems/分页/行渲染/事件委托/筛选/CSV）
+items-form.js  107 行 表单（提交/编辑回填/buildPayload）
+items-batch.js  70 行 批量（勾选/全选/归档/删除/改状态/改分类）
+```
+
+**顺带修复（拆分验证中发现）**：
+- **audit 写锁 P1 bug**：after_insert 等事件在业务事务 flush 阶段用新连接写日志 → SQLite database is locked → 物品写操作请求挂起。改用事件传入的 connection 同一事务写日志（a8f0299 内）
+- **SQLite 并发加固**：connect timeout 30 + PRAGMA WAL/busy_timeout=30000（a8f0299 内）
+
+验证：全量回归（新增/编辑/筛选/批量/删除/首页/位置/分类/标签/hash 路由）全过，pytest 11 passed（提速至 ~1.7s），无 JS 错误。
