@@ -62,7 +62,7 @@ export function initDetail(ctx) {
     if (catName) rows.push(field("分类", escapeHtml(catName)));
     if (item.price != null) rows.push(field("价格", "¥" + Number(item.price).toFixed(2)));
     if (item.expiry_date) rows.push(field("保质期", `${escapeHtml(item.expiry_date)} ${expBadge}`));
-    if (item.purchase_date) rows.push(field("购买日期", escapeHtml(item.purchase_date)));
+    if (item.purchase_date) rows.push(field("生产日期", escapeHtml(item.purchase_date)));
     if (item.shelf_life_days) rows.push(field("保质天数", `${item.shelf_life_days} 天`));
     if (item.serial_number) rows.push(field("序列号", escapeHtml(item.serial_number)));
     if (item.barcode) rows.push(field("条码", escapeHtml(item.barcode)));

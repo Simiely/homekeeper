@@ -1,4 +1,4 @@
-// 物品列表：loadItems / 分页 / 紧凑行渲染（突出位置·数量·保质期）/ 选中联动详情 / 筛选栏 / CSV
+// 物品列表：loadItems / 分页 / 紧凑行渲染（名称·位置突出·数量·保质期角标）/ 选中联动详情 / 筛选栏 / 排序 / CSV
 // 通过 initList(ctx) 注入上下文（items.js 编排器创建 ctx），无循环依赖
 // 行内不再放操作按钮（编辑/日志/借用/二维码/已处理/删除 都在详情卡片 items-detail.js）
 import { api, imgUrl } from "./api.js";
@@ -17,8 +17,20 @@ export function initList(ctx) {
     setVal("#f-status", urlP.get("status_filter"));
     setVal("#f-category", urlP.get("category_id"));
     setVal("#f-location", urlP.get("location_id"));
-    setVal("#f-tag", urlP.get("tag_id"));
+    setVal("#f-sort", urlP.get("sort"));
     if (urlP.get("show_archived")) el.querySelector("#f-archived").checked = true;
+    // 多选标签恢复（tag_ids 数组 → 对应 chip 高亮）
+    const selTagIds = new Set(urlP.getAll("tag_ids").map(Number));
+    if (selTagIds.size) {
+      el.querySelectorAll("#f-tags .filter-tag").forEach((b) => {
+        if (selTagIds.has(Number(b.dataset.tid))) b.classList.add("active");
+      });
+    }
+  }
+
+  // 当前选中的标签 id 集合
+  function selectedTagIds() {
+    return [...el.querySelectorAll("#f-tags .filter-tag.active")].map((b) => Number(b.dataset.tid));
   }
 
   // ===== 事件委托（只注册一次，#item-list 是常驻节点，重渲染只改 innerHTML）=====
@@ -69,14 +81,23 @@ export function initList(ctx) {
   el.querySelector("#f-status").onchange = doSearch;
   el.querySelector("#f-category").onchange = doSearch;
   el.querySelector("#f-location").onchange = doSearch;
-  el.querySelector("#f-tag").onchange = doSearch;
+  el.querySelector("#f-sort").onchange = doSearch;
   el.querySelector("#f-archived").onchange = doSearch;
+  // 标签多选：点击 chip 切换选中 → 重新搜索
+  el.querySelectorAll("#f-tags .filter-tag").forEach((b) => {
+    b.onclick = () => {
+      b.classList.toggle("active");
+      b.blur(); // 消除点击后 focus 残留（触屏 hover 滞留）
+      doSearch();
+    };
+  });
   el.querySelector("#f-reset").onclick = () => {
     el.querySelector("#f-keyword").value = "";
     el.querySelector("#f-status").value = "";
     el.querySelector("#f-category").value = "";
     el.querySelector("#f-location").value = "";
-    el.querySelector("#f-tag").value = "";
+    el.querySelector("#f-sort").value = "newest";
+    el.querySelectorAll("#f-tags .filter-tag.active").forEach((b) => b.classList.remove("active"));
     ctx.loadItems();
   };
 
@@ -138,12 +159,14 @@ export function initList(ctx) {
     const st = el.querySelector("#f-status").value;
     const ca = el.querySelector("#f-category").value;
     const lo = el.querySelector("#f-location").value;
-    const ta = el.querySelector("#f-tag").value;
+    const sort = el.querySelector("#f-sort").value;
+    const tags = selectedTagIds();
     if (kw) params.set("keyword", kw);
     if (st) params.set("status_filter", st);
     if (ca) params.set("category_id", ca);
     if (lo) params.set("location_id", lo);
-    if (ta) params.set("tag_id", ta);
+    if (sort && sort !== "newest") params.set("sort", sort);
+    tags.forEach((id) => params.append("tag_ids", id));
     if (el.querySelector("#f-archived").checked) params.set("show_archived", "true");
     params.set("page", ctx.currentPage);
     params.set("page_size", "20");
@@ -154,7 +177,8 @@ export function initList(ctx) {
         status_filter: st || undefined,
         category_id: ca || undefined,
         location_id: lo || undefined,
-        tag_id: ta || undefined,
+        tag_ids: tags.length ? tags : undefined,
+        sort: sort && sort !== "newest" ? sort : undefined,
         show_archived: el.querySelector("#f-archived").checked ? "1" : undefined,
         sel: ctx.selectedId || undefined,
       },
@@ -174,6 +198,7 @@ export function initList(ctx) {
     const totalPages = data.total_pages;
 
     const locPath = buildLocPath(ctx.locations);
+    const catMap = Object.fromEntries(ctx.categories.map((c) => [c.id, c.name]));
 
     // 并发获取所有物品的图片（取第一张）
     const imgMap = {};
@@ -203,9 +228,12 @@ export function initList(ctx) {
              </div>`
           : `<div class="item-thumb empty">📦</div>`;
         const loc = locPath(it.location_id);
+        // 位置突出：accent 色独立一行（用户核心诉求）
+        const locHtml = `<div class="item-row-loc">📍 ${loc ? escapeHtml(loc) : "未设置位置"}${it.location_note ? "（" + escapeHtml(it.location_note) + "）" : ""}</div>`;
         const expBadge = it.expiry_date
           ? `<span class="badge ${it.expiry_date < todayStr() ? "badge-exp" : "badge-warn"}">${expiryText(it.expiry_date)}</span>`
           : "";
+        const cat = catMap[it.category_id];
         return `
       <div class="item-row${it.archived ? " archived" : ""}${it.id === ctx.selectedId ? " active" : ""}" data-sel="${it.id}">
         <input type="checkbox" class="item-cb" value="${it.id}" title="批量选择" />
@@ -214,12 +242,10 @@ export function initList(ctx) {
           <div class="item-row-top">
             <span class="item-row-name">${escapeHtml(it.name)}</span>
             <span class="item-row-status">${escapeHtml(it.status)}</span>
+            <span class="item-row-exp">${expBadge}</span>
           </div>
-          <div class="item-row-loc">📍 ${loc ? escapeHtml(loc) : "未设置位置"}${it.location_note ? "（" + escapeHtml(it.location_note) + "）" : ""}</div>
-          <div class="item-row-meta">
-            <span>数量：${it.quantity} ${escapeHtml(it.unit)}</span>
-            ${expBadge}
-          </div>
+          ${locHtml}
+          <div class="item-row-meta">${it.quantity} ${escapeHtml(it.unit)}${cat ? " · " + escapeHtml(cat) : ""}</div>
         </div>
       </div>`;
       })

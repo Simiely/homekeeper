@@ -32,23 +32,30 @@ export async function renderItems() {
     const locOpts = ['<option value="">全部位置</option>']
       .concat(buildTreeOptions(locations))
       .join("");
-    const tagOpts = ['<option value="">全部标签</option>']
-      .concat(tags.map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`))
-      .join("");
 
     el.innerHTML = `
       <h2>物品</h2>
       <div id="filter-bar" class="card">
         <input id="f-keyword" placeholder="搜索名称/描述/备注…" />
+        <select id="f-sort">
+          <option value="newest">最新添加</option>
+          <option value="expiry">按保质期排序</option>
+          <option value="location">按位置排序</option>
+          <option value="category">按分类排序</option>
+        </select>
         <select id="f-status">${statusOpts}</select>
         <select id="f-category">${catOpts}</select>
         <select id="f-location">${locOpts}</select>
-        <select id="f-tag">${tagOpts}</select>
         <button id="f-search" type="button">搜索</button>
         <button id="f-reset" type="button" class="ghost">重置</button>
         <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:4px">
           <input id="f-archived" type="checkbox" /> 显示已处理
         </label>
+        <div id="f-tags" class="filter-tags">
+          <span class="filter-tag-label">标签：</span>
+          ${tags.map((t) => `<button type="button" class="tag-chip filter-tag" data-tid="${t.id}" style="background:${t.color}18;color:${t.color};border-color:${t.color}55">${escapeHtml(t.name)}</button>`).join("")}
+          ${tags.length ? "" : '<span class="filter-tag-label">暂无</span>'}
+        </div>
         <button id="export-csv" type="button" class="ghost" style="margin-left:auto">导出 CSV</button>
         <button id="import-csv" type="button" class="ghost">导入 CSV</button>
         <input id="import-file" type="file" accept=".csv" style="display:none" />

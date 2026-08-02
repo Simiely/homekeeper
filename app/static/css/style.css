@@ -1770,6 +1770,16 @@ tr.archived td {
   border-radius: 999px;
 }
 .item-row-loc {
+  /* 位置突出：accent 色 + 加粗独立一行（用户核心诉求） */
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-row-meta {
   font-size: 12px;
   color: var(--muted);
   margin-top: 3px;
@@ -1777,14 +1787,40 @@ tr.archived td {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.item-row-meta {
+/* 保质期角标：贴行右上角 */
+.item-row-exp {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.item-row-exp .badge {
+  font-size: 11px;
+}
+
+/* 筛选栏标签多选（chips 切换，可多选，URL tag_ids 数组） */
+.filter-tags {
   display: flex;
-  align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
-  margin-top: 5px;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.filter-tag-label {
   font-size: 12px;
-  color: var(--text);
+  color: var(--muted);
+}
+.filter-tag {
+  cursor: pointer;
+  font-size: 12px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  transition: filter 0.12s ease, box-shadow 0.12s ease;
+}
+.filter-tag:hover {
+  filter: brightness(1.18);
+}
+.filter-tag.active {
+  box-shadow: 0 0 0 2px var(--accent);
+  font-weight: 600;
 }
 
 /* 详情卡片 */
@@ -1922,6 +1958,28 @@ tr.archived td {
 }
 .form-group .full {
   grid-column: 1 / -1;
+}
+/* 表单字段：label 在上、输入在下（替代仅 placeholder，价格/日期等语义更清楚） */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.form-field label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.form-field label em {
+  color: var(--danger);
+  font-style: normal;
+}
+.form-field input,
+.form-field select {
+  width: 100%;
+}
+.form-field .barcode-row {
+  width: 100%;
 }
 .form-hint {
   grid-column: 1 / -1;

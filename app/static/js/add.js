@@ -30,56 +30,104 @@ export async function renderAdd() {
       <form id="item-form" class="card add-form">
         <fieldset class="form-group">
           <legend>条码</legend>
-          <div class="barcode-row full">
-            <input name="barcode" placeholder="条形码（扫码 / 扫码枪 / 手动输入）" />
-            <button type="button" id="barcode-scan" class="ghost hidden" title="用摄像头扫码">扫码</button>
+          <div class="form-field full">
+            <label for="f-barcode">条码</label>
+            <div class="barcode-row">
+              <input id="f-barcode" name="barcode" placeholder="扫码 / 扫码枪 / 手动输入" />
+              <button type="button" id="barcode-scan" class="ghost hidden" title="用摄像头扫码">扫码</button>
+            </div>
           </div>
           <p class="form-hint">扫码或输入条码：曾录入过的物品会自动回填名称、位置、数量等信息（保质期除外），改好即可保存。</p>
         </fieldset>
 
         <fieldset class="form-group">
           <legend>基本信息</legend>
-          <input name="name" placeholder="物品名称" required class="full" />
-          <input name="description" placeholder="描述" class="full" />
-          <select name="category_id" class="full">
-            <option value="">分类（可选）</option>
-            ${categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
-          </select>
+          <div class="form-field full">
+            <label for="f-name">物品名称 <em>*</em></label>
+            <input id="f-name" name="name" placeholder="如：生抽、雨伞" required />
+          </div>
+          <div class="form-field full">
+            <label for="f-description">描述</label>
+            <input id="f-description" name="description" placeholder="用途 / 规格 / 备注" />
+          </div>
+          <div class="form-field full">
+            <label for="f-category">分类</label>
+            <select id="f-category" name="category_id">
+              <option value="">分类（可选）</option>
+              ${categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
+            </select>
+          </div>
         </fieldset>
 
         <fieldset class="form-group">
           <legend>存放位置</legend>
-          <select name="location_id" class="full">
-            ${buildTreeOptions(locations, "位置（可选）")}
-          </select>
-          <input name="location_note" placeholder="备注位置（如：第二层靠左）" class="full" />
+          <div class="form-field full">
+            <label for="f-location">位置</label>
+            <select id="f-location" name="location_id">
+              ${buildTreeOptions(locations, "位置（可选）")}
+            </select>
+          </div>
+          <div class="form-field full">
+            <label for="f-location-note">位置备注</label>
+            <input id="f-location-note" name="location_note" placeholder="如：第二层靠左" />
+          </div>
         </fieldset>
 
         <fieldset class="form-group">
           <legend>数量与状态</legend>
-          <input name="quantity" type="number" step="any" value="1" placeholder="数量" />
-          <input name="unit" value="个" placeholder="单位" />
-          <select name="status">
-            ${STATUS_OPTIONS.map((s) => `<option>${s}</option>`).join("")}
-          </select>
+          <div class="form-field">
+            <label for="f-quantity">数量</label>
+            <input id="f-quantity" name="quantity" type="number" step="any" value="1" />
+          </div>
+          <div class="form-field">
+            <label for="f-unit">单位</label>
+            <input id="f-unit" name="unit" value="个" />
+          </div>
+          <div class="form-field">
+            <label for="f-status">状态</label>
+            <select id="f-status" name="status">
+              ${STATUS_OPTIONS.map((s) => `<option>${s}</option>`).join("")}
+            </select>
+          </div>
         </fieldset>
 
         <fieldset class="form-group">
           <legend>保质期</legend>
-          <input name="shelf_life_days" type="number" min="1" placeholder="保质期天数" title="填写保质期天数，自动算出到期时间" />
-          <input name="purchase_date" type="date" title="购买日期（到期时间按 购买日+保质期 计算，未填按今天）" />
-          <input name="expiry_date" type="date" title="保质期（到期日）；也可直接填写" />
-          <p class="form-hint">填「保质期天数」+「购买日期」会自动算到期时间；或直接填「保质期」到期日。</p>
+          <div class="form-field">
+            <label for="f-shelf-days">保质期天数</label>
+            <input id="f-shelf-days" name="shelf_life_days" type="number" min="1" placeholder="如：180" title="填写保质期天数，自动算出到期时间" />
+          </div>
+          <div class="form-field">
+            <label for="f-purchase">生产日期</label>
+            <input id="f-purchase" name="purchase_date" type="date" title="保质期按 生产日期 + 保质期天数 自动计算；未填则按今天" />
+          </div>
+          <div class="form-field">
+            <label for="f-expiry">保质期到期</label>
+            <input id="f-expiry" name="expiry_date" type="date" title="保质期到期日；也可直接填写" />
+          </div>
+          <p class="form-hint">填「保质期天数」+「生产日期」会自动算到期时间；或直接填「保质期到期」日。</p>
         </fieldset>
 
         <fieldset class="form-group">
           <legend>更多信息</legend>
-          <input name="serial_number" placeholder="序列号" />
-          <input name="price" type="number" step="0.01" placeholder="价格（元）" />
-          <input name="warranty_expiry" type="date" title="保修到期" />
-          <select name="tags" multiple size="3" title="标签（按住 Ctrl 多选）" class="full">
-            ${tags.map((t) => `<option value="${t.id}" style="color:${t.color}">${escapeHtml(t.name)}</option>`).join("")}
-          </select>
+          <div class="form-field">
+            <label for="f-serial">序列号</label>
+            <input id="f-serial" name="serial_number" placeholder="序列号 / 编号" />
+          </div>
+          <div class="form-field">
+            <label for="f-price">价格（元）</label>
+            <input id="f-price" name="price" type="number" step="0.01" placeholder="如：29.90" />
+          </div>
+          <div class="form-field">
+            <label for="f-warranty">保修到期</label>
+            <input id="f-warranty" name="warranty_expiry" type="date" title="保修到期" />
+          </div>
+          <div class="form-field full">
+            <label for="f-tags">标签</label>
+            <select id="f-tags" name="tags" multiple size="3" title="标签（按住 Ctrl 多选）">
+              ${tags.map((t) => `<option value="${t.id}" style="color:${t.color}">${escapeHtml(t.name)}</option>`).join("")}
+            </select>
+          </div>
         </fieldset>
 
         <fieldset class="form-group">

@@ -50,7 +50,9 @@ def list_items(
     category_id: int | None = None,
     location_id: int | None = None,
     tag_id: int | None = None,
+    tag_ids: list[int] | None = None,
     show_archived: bool = False,
+    sort: str = "newest",
     page: int = 1,
     page_size: int = 20,
 ) -> PaginatedItems:
@@ -89,10 +91,34 @@ def list_items(
         q = q.filter(Item.category_id == category_id)
     if location_id is not None:
         q = q.filter(Item.location_id == location_id)
-    if tag_id is not None:
-        q = q.join(item_tag_assoc).filter(item_tag_assoc.c.tag_id == tag_id)
+    if tag_ids:
+        # 多标签筛选：命中任一选中标签（并集）
+        q = (
+            q.join(item_tag_assoc, item_tag_assoc.c.item_id == Item.id)
+            .filter(item_tag_assoc.c.tag_id.in_(tag_ids))
+            .distinct()
+        )
+    elif tag_id is not None:
+        q = q.join(item_tag_assoc).filter(item_tag_assoc.c.tag_id == tag_id).distinct()
     if not show_archived:
         q = q.filter(Item.archived == False)  # noqa: E712
+    # 排序：默认最新添加；expiry=过期日期升序（无保质期最后）；location=位置顺序（sort_order→名称）；category=分类名
+    if sort == "expiry":
+        q = q.order_by(Item.expiry_date.asc().nullslast(), Item.created_at.desc())
+    elif sort == "location":
+        loc_sort = aliased(Location)
+        q = q.outerjoin(loc_sort, Item.location_id == loc_sort.id)
+        q = q.order_by(
+            loc_sort.sort_order.asc().nullslast(),
+            loc_sort.name.asc().nullslast(),
+            Item.created_at.desc(),
+        )
+    elif sort == "category":
+        cat_sort = aliased(Category)
+        q = q.outerjoin(cat_sort, Item.category_id == cat_sort.id)
+        q = q.order_by(cat_sort.name.asc().nullslast(), Item.created_at.desc())
+    else:
+        q = q.order_by(Item.created_at.desc())
     total = q.count()
     items = (
         q.order_by(Item.created_at.desc())
