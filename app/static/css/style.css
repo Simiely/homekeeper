@@ -761,6 +761,11 @@ body.loc-edit-mode .loc-handle {
   color: var(--accent);
   font-weight: 700;
 }
+/* 编辑模式：暂时收起所有展开的物品列表（!important 覆盖内联 flex）；
+   展开状态（.expanded）本身保留，点「✔ 完成」退出后自动恢复显示 */
+body.loc-edit-mode .loc-items {
+  display: none !important;
+}
 .loc-handle {
   cursor: grab;
   color: var(--muted);

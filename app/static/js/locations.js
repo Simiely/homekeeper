@@ -128,9 +128,9 @@ export async function renderLocations() {
         renderLocations();
         return;
       }
-      // ▸ 展开/收起该位置下的物品列表（两种模式都可用）
+      // ▸ 展开/收起该位置下的物品列表（编辑模式下已统一收起，禁用切换以保持状态）
       const toggle = e.target.closest(".loc-toggle");
-      if (toggle) {
+      if (toggle && !editMode) {
         toggleItems(toggle.closest(".loc-card"));
         return;
       }
