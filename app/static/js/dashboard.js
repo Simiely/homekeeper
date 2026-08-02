@@ -178,18 +178,18 @@ export async function renderDashboard() {
   // ---------- 临期清理 ----------
   const groupsEl = el.querySelector("#exp-groups");
 
-  // 每行一个「已清理」按钮：程序弹窗确认后标记状态，物品从临期清单消失
+  // 每行一个「已处理」按钮：程序弹窗确认后标记状态，物品从临期清单消失
   const markCleaned = async (id, name) => {
     const ok = await showDialog({
       title: "确认清理",
-      message: `确认「${name}」已清理？标记后不再出现在临期清理中。`,
-      confirmText: "已清理",
+      message: `确认「${name}」已处理？标记后不再出现在临期清理中。`,
+      confirmText: "已处理",
       cancelText: "取消",
       danger: true,
     });
     if (!ok) return;
     try {
-      await api.put(`/items/${id}`, { status: "已清理" });
+      await api.put(`/items/${id}`, { status: "已处理" });
       await loadExpiring();
       renderDashboard(); // 刷新统计与常用位置
     } catch (e) {
@@ -199,7 +199,7 @@ export async function renderDashboard() {
 
   const itemRow = (i) => `
     <div class="exp-item ${i.expired ? "exp-red" : "exp-yellow"}">
-      <button type="button" class="exp-clean" data-id="${i.id}" data-name="${escapeHtml(i.name)}">已清理</button>
+      <button type="button" class="exp-clean" data-id="${i.id}" data-name="${escapeHtml(i.name)}">已处理</button>
       <span class="e-name">${escapeHtml(i.name)}</span>
       <span class="e-loc muted">${i.location_id ? escapeHtml(pathOf(i.location_id) || "") : ""}</span>
       <span class="e-days">${i.expired ? `已过期 ${-i.days_left} 天` : `剩 ${i.days_left} 天`}</span>

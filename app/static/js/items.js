@@ -7,7 +7,7 @@ import { initForm } from "./items-form.js";
 import { initList } from "./items-list.js";
 
 // 状态字典：由后端 /api/meta 提供（单一数据源），此处为离线兜底值
-let STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃", "已清理"];
+let STATUS_OPTIONS = ["在库", "临期", "定期处理", "已处理", "损坏丢弃"];
 
 export async function renderItems() {
   const el = document.getElementById("view-items");
@@ -89,7 +89,7 @@ export async function renderItems() {
         <button id="import-csv" type="button" class="ghost">导入 CSV</button>
         <input id="import-file" type="file" accept=".csv" style="display:none" />
         <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:4px">
-          <input id="f-archived" type="checkbox" /> 显示已归档
+          <input id="f-archived" type="checkbox" /> 显示已处理
         </label>
       </div>
 

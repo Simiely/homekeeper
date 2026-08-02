@@ -18,8 +18,8 @@ def test_expiring_segments_and_terminal_filter(client, create_user):
 
     _mk_item(client, token, "过期品", expiry_date="2020-01-01")  # 已过期
     _mk_item(client, token, "临期品", expiry_date="2030-01-01")  # 未来
-    _mk_item(client, token, "已清理品", expiry_date="2020-01-01", status="已清理")
-    _mk_item(client, token, "已丢弃品", expiry_date="2020-01-01", status="已丢弃")
+    _mk_item(client, token, "已清理品", expiry_date="2020-01-01", status="已处理")
+    _mk_item(client, token, "已丢弃品", expiry_date="2020-01-01", status="损坏丢弃")
     _mk_item(client, token, "归档品", expiry_date="2020-01-01", archived=True)
 
     data = client.get("/api/dashboard/expiring?days=3650", headers=h).json()
@@ -44,7 +44,7 @@ def test_warranty_expiring(client, create_user):
     token = create_user("warrantyuser")
     h = {"Authorization": f"Bearer {token}"}
     _mk_item(client, token, "保修品", warranty_expiry="2020-01-01")
-    _mk_item(client, token, "保修已清理", warranty_expiry="2020-01-01", status="已清理")
+    _mk_item(client, token, "保修已清理", warranty_expiry="2020-01-01", status="已处理")
 
     data = client.get("/api/dashboard/expiring?days=3650", headers=h).json()
     names = [i["name"] for i in data["warranty_expiring"]]

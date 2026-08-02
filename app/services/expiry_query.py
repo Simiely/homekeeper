@@ -13,7 +13,7 @@ from app.models.status import ItemStatus
 from app.models.user import User
 
 # 处理终态：标记后不再出现在任何临期提醒中
-TERMINAL_STATUSES = [ItemStatus.CLEANED.value, ItemStatus.DISCARDED.value]
+TERMINAL_STATUSES = [ItemStatus.PROCESSED.value, ItemStatus.DISCARDED.value]
 
 
 def get_expiring_items(

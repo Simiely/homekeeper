@@ -31,8 +31,8 @@ def test_item_crud(client, create_user):
     assert lst["total"] == 1
 
     # 更新状态
-    r2 = client.put(f"/api/items/{iid}", json={"status": "已借出"}, headers=h)
-    assert r2.json()["status"] == "已借出"
+    r2 = client.put(f"/api/items/{iid}", json={"status": "临期"}, headers=h)
+    assert r2.json()["status"] == "临期"
 
     # 过期提醒
     exp = client.get("/api/dashboard/expiring?days=30", headers=h).json()
@@ -71,7 +71,7 @@ def test_item_filter(client, create_user):
         },
         headers=h,
     )
-    client.post("/api/items", json={"name": "牛奶", "status": "已借出"}, headers=h)
+    client.post("/api/items", json={"name": "牛奶", "status": "临期"}, headers=h)
 
     r1 = client.get("/api/items?keyword=螺丝", headers=h).json()
     assert len(r1["items"]) == 1 and r1["items"][0]["name"] == "螺丝刀"
@@ -82,7 +82,7 @@ def test_item_filter(client, create_user):
     r3 = client.get(f"/api/items?location_id={loc['id']}", headers=h).json()
     assert len(r3["items"]) == 1
 
-    r4 = client.get("/api/items?status_filter=已借出", headers=h).json()
+    r4 = client.get("/api/items?status_filter=临期", headers=h).json()
     assert len(r4["items"]) == 1 and r4["items"][0]["name"] == "牛奶"
 
     r5 = client.get("/api/items?keyword=螺丝&status_filter=在库", headers=h).json()

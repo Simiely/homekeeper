@@ -97,7 +97,7 @@ export function initList(ctx) {
       });
       return;
     }
-    // 归档 / 取消归档
+    // 已处理 / 撤销已处理
     const archiveBtn = e.target.closest("[data-archive]");
     if (archiveBtn) {
       api.post(`/items/${archiveBtn.dataset.archive}/archive`).then(() => ctx.loadItems());
@@ -284,8 +284,8 @@ export function initList(ctx) {
         <button data-borrow="${it.id}" class="mini-btn muted" title="借用记录">借</button>
         <button data-qr="${it.id}" class="mini-btn muted" title="二维码">◈</button>
         ${it.archived
-          ? `<button data-unarchive="${it.id}" class="mini-btn muted">取消归档</button>`
-          : `<button data-archive="${it.id}" class="mini-btn muted">归档</button>`}
+          ? `<button data-unarchive="${it.id}" class="mini-btn muted">撤销已处理</button>`
+          : `<button data-archive="${it.id}" class="mini-btn muted">已处理</button>`}
         <button data-del="${it.id}" class="mini-btn danger">删</button>
       </td>
     </tr>`;
@@ -302,7 +302,7 @@ export function initList(ctx) {
         <span id="batch-count" class="muted" style="margin-right:8px">已选 0 件</span>
         <select id="batch-status"><option value="">改状态</option>${(ctx.statusOptions || []).map(s => `<option value="${s}">${s}</option>`).join("")}</select>
         <select id="batch-category"><option value="">改分类</option>${ctx.categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}</select>
-        <button id="batch-archive" class="ghost" style="font-size:12px">归档</button>
+        <button id="batch-archive" class="ghost" style="font-size:12px">已处理</button>
         <button id="batch-delete" class="ghost" style="font-size:12px;color:var(--danger)">删除</button>
       </div>
       ${renderPagination(data)}
