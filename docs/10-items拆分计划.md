@@ -34,8 +34,8 @@
 
 ```
 js/
-├── items.js          # 入口编排（~150 行）：元数据加载 + 主模板 + ctx 组装 + 筛选栏 + 初次加载
-├── items-list.js     # 列表（~180 行）：loadItems / renderPagination / 行模板 / 列表事件委托（图片/归档/删除）
+├── items.js          # 入口编排（~130 行）：元数据加载 + 主模板 + ctx 组装 + 初次加载
+├── items-list.js     # 列表（~210 行）：loadItems / renderPagination / 行模板 / 列表事件委托（图片/归档/删除）/ 筛选栏 / CSV 导入导出
 ├── items-form.js     # 表单（~110 行）：新增提交 / startEdit / cancelEdit / buildPayload
 └── items-batch.js    # 批量（~80 行）：批量条 / updateBatchBar / select-all / batch-* 按钮
 ```
@@ -44,10 +44,12 @@ js/
 
 | 文件 | 导出 | 职责 |
 |------|------|------|
-| **items.js** | `renderItems()` | 加载元数据；渲染主模板（筛选栏+表单+列表容器+批量条容器）；创建并填充 `ctx`；调用 `initList/initForm/initBatch` 完成绑定；`doSearch` 与筛选栏绑定；初次 `loadItems` |
-| **items-list.js** | `initList(ctx)` | 绑定 `#item-list` 事件委托（图片上传/缩略图/归档/删除/[data-edit] 分派）；`loadItems(ctx)`（读 DOM 筛选值 → api → `renderListHtml` → 分页）；`renderPagination(ctx, d)` |
+| **items.js** | `renderItems()` | 加载元数据；渲染主模板（筛选栏+表单+列表容器+批量条容器）；创建并填充 `ctx`；调用 `initList/initForm/initBatch` 完成绑定；初次 `loadItems` |
+| **items-list.js** | `initList(ctx)` | 绑定 `#item-list` 事件委托（图片上传/缩略图/归档/删除/[data-edit] 分派）；`loadItems(ctx)`；`renderPagination(ctx, d)`；**筛选栏绑定（doSearch/f-search/f-reset/各下拉）**；**CSV 导入导出**（与列表数据强相关） |
 | **items-form.js** | `initForm(ctx)` | `#item-form` 提交（新建/编辑共用，editId 由 ctx 持有）；`startEdit(ctx, item)` / `cancelEdit(ctx)`；`buildPayload(fd)` |
 | **items-batch.js** | `initBatch(ctx)` | 批量条绑定：`select-all`、勾选更新、`batch-archive/delete/status/category`；`updateBatchBar(ctx)` |
+
+> 优化点（调研后确认）：筛选栏与 CSV 导入导出归属 items-list.js——它们都与"列表数据"强相关（筛选驱动 loadItems、CSV 导出当前列表/导入刷新列表），放 list 模块内聚性更好，编排器保持最薄。
 
 ### 2.2 模块间通信：ctx 状态对象
 
