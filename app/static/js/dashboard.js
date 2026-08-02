@@ -1,6 +1,6 @@
 // 首页：快速找物品（全局搜索）+ 临期清理工作台 + 常用位置 + 统计（底部边缘弱化）
 import { api } from "./api.js";
-import { batchItems, buildLocPath, escapeHtml, todayStr, viewError, viewLoading } from "./utils.js";
+import { buildLocPath, escapeHtml, todayStr, viewError, viewLoading } from "./utils.js";
 
 const RECENT_KEY = "hk-recent-searches";
 const RECENT_MAX = 8;
@@ -72,11 +72,6 @@ export async function renderDashboard() {
     <section class="home-exp">
       <h3>临期清理 <span class="exp-days"><input id="exp-days" type="number" min="1" value="30" /> 天内</span></h3>
       <div id="exp-groups"><p class="muted">加载中…</p></div>
-      <div id="exp-actions" class="exp-actions hidden">
-        <span id="exp-count" class="muted">已选 0 件</span>
-        <button id="exp-archive" type="button">归档</button>
-        <button id="exp-discard" type="button" class="danger">丢弃</button>
-      </div>
     </section>
 
     <section class="home-hot">
@@ -182,22 +177,26 @@ export async function renderDashboard() {
 
   // ---------- 临期清理 ----------
   const groupsEl = el.querySelector("#exp-groups");
-  const actionsEl = el.querySelector("#exp-actions");
-  const countEl = el.querySelector("#exp-count");
-  const selected = new Set();
 
-  const updateActions = () => {
-    countEl.textContent = `已选 ${selected.size} 件`;
-    actionsEl.classList.toggle("hidden", selected.size === 0);
+  // 每行一个「已清理」按钮：确认后标记状态，物品从临期清单消失
+  const markCleaned = async (id, name) => {
+    if (!confirm(`确认「${name}」已清理？标记后不再出现在临期清理中。`)) return;
+    try {
+      await api.put(`/items/${id}`, { status: "已清理" });
+      await loadExpiring();
+      renderDashboard(); // 刷新统计与常用位置
+    } catch (e) {
+      alert("操作失败：" + e.message);
+    }
   };
 
   const itemRow = (i) => `
-    <label class="exp-item ${i.expired ? "exp-red" : "exp-yellow"}">
-      <input type="checkbox" data-id="${i.id}" ${selected.has(i.id) ? "checked" : ""} />
+    <div class="exp-item ${i.expired ? "exp-red" : "exp-yellow"}">
+      <button type="button" class="exp-clean" data-id="${i.id}" data-name="${escapeHtml(i.name)}">已清理</button>
       <span class="e-name">${escapeHtml(i.name)}</span>
       <span class="e-loc muted">${i.location_id ? escapeHtml(pathOf(i.location_id) || "") : ""}</span>
       <span class="e-days">${i.expired ? `已过期 ${-i.days_left} 天` : `剩 ${i.days_left} 天`}</span>
-    </label>`;
+    </div>`;
 
   const renderGroups = (list) => {
     const expired = list.filter((i) => i.expired);
@@ -207,20 +206,13 @@ export async function renderDashboard() {
       ${upcoming.length ? `<p class="exp-h exp-h-yellow">即将过期 · ${upcoming.length}</p>` + upcoming.map(itemRow).join("") : ""}
       ${!expired.length && !upcoming.length ? '<p class="muted">近 30 天没有需要处理的物品</p>' : ""}
     `;
-    groupsEl.querySelectorAll("input[type=checkbox]").forEach((cb) => {
-      cb.onchange = () => {
-        const id = Number(cb.dataset.id);
-        if (cb.checked) selected.add(id);
-        else selected.delete(id);
-        updateActions();
-      };
+    groupsEl.querySelectorAll(".exp-clean").forEach((btn) => {
+      btn.onclick = () => markCleaned(Number(btn.dataset.id), btn.dataset.name);
     });
   };
 
   const loadExpiring = async () => {
     const days = el.querySelector("#exp-days").value || 30;
-    selected.clear();
-    updateActions();
     try {
       const data = await api.get(`/dashboard/expiring?days=${encodeURIComponent(days)}`);
       renderGroups(data.expiring || []);
@@ -233,21 +225,6 @@ export async function renderDashboard() {
   el.querySelector("#exp-days").addEventListener("keydown", (e) => {
     if (e.key === "Enter") loadExpiring();
   });
-
-  const runBatch = async (action) => {
-    const ids = [...selected];
-    if (!ids.length) return;
-    if (action === "delete" && !confirm(`确认丢弃选中的 ${ids.length} 件物品？此操作不可恢复。`)) return;
-    try {
-      await batchItems(ids, action);
-      await loadExpiring();
-      renderDashboard(); // 刷新统计与常用位置
-    } catch (e) {
-      alert("操作失败：" + e.message);
-    }
-  };
-  el.querySelector("#exp-discard").onclick = () => runBatch("delete");
-  el.querySelector("#exp-archive").onclick = () => runBatch("archive");
 
   // 常用位置 → 位置页（聚焦标记 + URL 展开参数：折叠无关分支并高亮目标）
   el.querySelectorAll(".hot-loc").forEach((b) => {

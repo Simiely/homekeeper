@@ -58,7 +58,7 @@ def get_summary(db: Session, user: User) -> dict:
 def get_expiring(db: Session, user: User, days: int = 30) -> dict:
     """临期物品 + 保修到期列表。
 
-    - 排除已归档
+    - 排除已归档与已处理终态（已清理/已丢弃）
     - 每条返回 days_left（负数=已过期）与 expired 标记，前端分段展示
     """
     today = date.today()
@@ -68,6 +68,7 @@ def get_expiring(db: Session, user: User, days: int = 30) -> dict:
         .filter(
             Item.owner_id == user.id,
             Item.archived == False,  # noqa: E712
+            Item.status.notin_(["已清理", "已丢弃"]),
             Item.expiry_date.isnot(None),
             Item.expiry_date <= threshold,
         )
@@ -79,6 +80,7 @@ def get_expiring(db: Session, user: User, days: int = 30) -> dict:
         .filter(
             Item.owner_id == user.id,
             Item.archived == False,  # noqa: E712
+            Item.status.notin_(["已清理", "已丢弃"]),
             Item.warranty_expiry.isnot(None),
             Item.warranty_expiry <= threshold,
         )

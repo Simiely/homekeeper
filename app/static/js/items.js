@@ -7,7 +7,7 @@ import { initForm } from "./items-form.js";
 import { initList } from "./items-list.js";
 
 // 状态字典：由后端 /api/meta 提供（单一数据源），此处为离线兜底值
-let STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃"];
+let STATUS_OPTIONS = ["在库", "已借出", "损坏", "待处理", "已丢弃", "已清理"];
 
 export async function renderItems() {
   const el = document.getElementById("view-items");

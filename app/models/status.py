@@ -8,3 +8,4 @@ class ItemStatus(str, enum.Enum):
     DAMAGED = "损坏"
     PENDING = "待处理"
     DISCARDED = "已丢弃"
+    CLEANED = "已清理"
