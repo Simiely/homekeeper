@@ -6,14 +6,14 @@ import { showDialog } from "./utils.js";
 export function initForm(ctx) {
   const el = ctx.el;
   const form = el.querySelector("#item-form");
-  const photoInput = el.querySelector("#item-photo");
+  const photoInputs = el.querySelectorAll("#item-photo-camera, #item-photo-gallery"); // 拍照/图库双入口
   const photoPick = el.querySelector("#item-photo-pick");
   const photoPreview = el.querySelector("#item-photo-preview");
   let photoFile = null; // 待上传的照片文件（新增模式）
 
   // 照片选择 → 本地预览（仅新增模式展示；编辑已有行内上传/缩略图）
-  photoInput.onchange = () => {
-    const f = photoInput.files?.[0];
+  const onPhotoPicked = (input) => {
+    const f = input.files?.[0];
     photoFile = f || null;
     if (f) {
       photoPreview.src = URL.createObjectURL(f);
@@ -23,6 +23,9 @@ export function initForm(ctx) {
       photoPreview.removeAttribute("src");
     }
   };
+  photoInputs.forEach((inp) => {
+    inp.onchange = () => onPhotoPicked(inp);
+  });
 
   // 编辑模式：回填表单 + 切换按钮（照片区域隐藏，编辑补图走列表行内上传）
   function startEdit(item) {
@@ -65,7 +68,7 @@ export function initForm(ctx) {
     // 恢复照片选择区并清空
     photoPick?.classList.remove("hidden");
     photoFile = null;
-    if (photoInput) photoInput.value = "";
+    photoInputs.forEach((inp) => { inp.value = ""; });
     if (photoPreview) {
       photoPreview.classList.add("hidden");
       photoPreview.removeAttribute("src");

@@ -1546,26 +1546,46 @@ tr.archived td {
   border-radius: 8px;
 }
 
-/* 添加物品：照片选择 + 预览 */
+/* 添加物品：照片选择（拍照/图库双入口）+ 预览 */
 .photo-pick {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
   border: 1px dashed var(--border);
   border-radius: 10px;
   padding: 10px;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 13px;
   background: var(--panel-2);
 }
-.photo-pick:hover {
+.photo-opt {
+  flex: 1;
+  min-width: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  background: var(--panel);
+}
+.photo-opt:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 .photo-pick input[type="file"] {
   display: none;
+}
+.photo-hint {
+  width: 100%;
+  margin: 2px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
 }
 .photo-preview {
   width: 100%;
