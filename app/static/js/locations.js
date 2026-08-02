@@ -251,6 +251,42 @@ function onDragStart(e) {
   document.addEventListener("pointercancel", onDragEnd);
 }
 
+// 拖拽边缘自动滚动：触屏拖拽时手指移到视口上/下边缘附近，页面跟随滚动，
+// 使超出当前屏幕的目标位置也能被拖到（拖拽期间 touch-action 已锁定，浏览器不会自行滚动）
+const DRAG_EDGE = 60; // 距视口边缘多少 px 触发滚动
+const DRAG_SCROLL_STEP = 14; // 每帧（约 16ms）滚动像素
+let dragScrollTimer = null;
+
+function autoScroll(clientY) {
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  let delta = 0;
+  if (clientY < DRAG_EDGE) {
+    delta = -((DRAG_EDGE - clientY) / DRAG_EDGE) * DRAG_SCROLL_STEP;
+  } else if (clientY > vh - DRAG_EDGE) {
+    delta = ((clientY - (vh - DRAG_EDGE)) / DRAG_EDGE) * DRAG_SCROLL_STEP;
+  }
+  if (delta === 0) {
+    stopAutoScroll();
+    return;
+  }
+  if (!dragScrollTimer) {
+    dragScrollTimer = setInterval(() => {
+      window.scrollBy(0, delta);
+      // 滚动后缝隙选择区域需按最新指针位置重算（fixed 区域不会自动跟随条目移动）
+      if (drag && drag.lastX != null && drag.zone) {
+        updateGapZone(drag.lastX, drag.lastY);
+      }
+    }, 16);
+  }
+}
+
+function stopAutoScroll() {
+  if (dragScrollTimer) {
+    clearInterval(dragScrollTimer);
+    dragScrollTimer = null;
+  }
+}
+
 function onDragMove(e) {
   if (!drag) return;
   const dx = e.clientX - drag.startX;
@@ -267,6 +303,9 @@ function onDragMove(e) {
     startDrag();
   }
   moveVisual(e.clientX, e.clientY);
+  drag.lastX = e.clientX;
+  drag.lastY = e.clientY;
+  autoScroll(e.clientY);
   // rAF 节流：区域更新合并到下一帧
   if (rafId == null) {
     const x = e.clientX;
@@ -389,6 +428,7 @@ function updateGapZone(clientX, clientY) {
 // 取消本次拖拽：清理监听与视觉残留（供「家」不可拖时调用；也用于 pointercancel）
 function cancelDrag() {
   if (!drag) return;
+  stopAutoScroll();
   document.removeEventListener("pointermove", onDragMove);
   document.removeEventListener("pointerup", onDragEnd);
   document.removeEventListener("pointercancel", onDragEnd);
@@ -412,6 +452,7 @@ function cancelDrag() {
 
 function onDragEnd(e) {
   if (!drag) return;
+  stopAutoScroll();
   document.removeEventListener("pointermove", onDragMove);
   document.removeEventListener("pointerup", onDragEnd);
   document.removeEventListener("pointercancel", onDragEnd);
