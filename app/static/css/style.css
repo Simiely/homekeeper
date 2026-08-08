@@ -1993,6 +1993,9 @@ tr.archived td {
 }
 .add-form {
   flex-direction: column;
+  /* .card 基类带 flex-wrap:wrap；列方向 + wrap 会让子项高度被拉伸
+     （实测内容 93px 的 fieldset 被撑到 ~220px）→ 必须 nowrap */
+  flex-wrap: nowrap;
   gap: 10px;
   align-items: stretch;
 }
