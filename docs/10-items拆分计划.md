@@ -122,6 +122,7 @@ items-list.js  316 行 列表（loadItems/分页/行渲染/事件委托/筛选/C
 items-form.js  107 行 表单（提交/编辑回填/buildPayload）
 items-batch.js  70 行 批量（勾选/全选/归档/删除/改状态/改分类）
 ```
+> ⚠️ 历史快照：以上为拆分当时（v0.9.6）结构。v0.9.9 起 `items-form.js` 已删除（表单迁至 `add.js`），并新增 `items-detail.js`，见下文 §七。
 
 **顺带修复（拆分验证中发现）**：
 - **audit 写锁 P1 bug**：after_insert 等事件在业务事务 flush 阶段用新连接写日志 → SQLite database is locked → 物品写操作请求挂起。改用事件传入的 connection 同一事务写日志（a8f0299 内）

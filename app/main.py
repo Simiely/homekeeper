@@ -92,7 +92,7 @@ def _seed_admin():
         db.close()
 
 
-app = FastAPI(title="拾光集", version="0.9.6", lifespan=lifespan)
+app = FastAPI(title="拾光集", version="0.9.13", lifespan=lifespan)
 
 
 app.add_middleware(
